@@ -254,6 +254,12 @@ addEventListener('mousemove', e => { coin.style.transform = 'rotateY(' + ((e.cli
     requestAnimationFrame(f);
   })();
 })();
-</script>
+</script><style>
+img[src*="coin"] {
+  border-radius: 50%;
+  object-fit: cover;
+  box-shadow: 0 0 25px rgba(153, 69, 255, 0.5);
+}
+</style>
 </body>
 </html>
