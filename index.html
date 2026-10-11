@@ -259,6 +259,12 @@ img[src*="coin"] {
   border-radius: 50%;
   object-fit: cover;
   box-shadow: 0 0 25px rgba(153, 69, 255, 0.5);
+  /* Remove o fundo branco do contentor da moeda no site */
+.hero img, img[src*="coin"] {
+  background: transparent !important;
+  border: none !important;
+  box-shadow: none !important;
+}
 }
 </style>
 </body>
