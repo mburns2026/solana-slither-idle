@@ -84,3 +84,26 @@ function apply() {
 document.addEventListener('change', e => { if (e.target.matches('[data-lang-select]')) { lang = e.target.value; try { localStorage.setItem('lang', lang); } catch (x) {} apply(); } });
 apply();
 })();
+// Substitui a parte de desenho da comida/moeda no teu index.html por isto:
+foods.forEach(f => {
+  ctx.save();
+  
+  ctx.shadowColor = f.glowColor;
+  ctx.shadowBlur = 12;
+
+  // Cria um recorte circular perfeito na posição da moeda
+  ctx.beginPath();
+  ctx.arc(f.x, f.y, f.rad, 0, Math.PI * 2);
+  ctx.clip();
+
+  if (coinImage.complete && coinImage.naturalWidth !== 0) {
+    ctx.drawImage(coinImage, f.x - f.rad, f.y - f.rad, f.rad * 2, f.rad * 2);
+  } else {
+    ctx.beginPath();
+    ctx.arc(f.x, f.y, f.rad, 0, Math.PI * 2);
+    ctx.fillStyle = f.glowColor;
+    ctx.fill();
+  }
+
+  ctx.restore();
+});
