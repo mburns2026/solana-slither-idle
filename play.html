@@ -1,0 +1,309 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>Solana Slither.Idle ($SLITHERI) - v0.6</title>
+<meta name="description" content="Slither.io + Idle na Solana. Jogue direto no navegador.">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🐍</text></svg>">
+<link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@500;700;900&family=Rajdhani:wght@600;700&display=swap" rel="stylesheet">
+<style>
+*{box-sizing:border-box;margin:0;padding:0;user-select:none}
+html,body{width:100%;height:100%;overflow:hidden;background:#05070a;font-family:'Rajdhani',sans-serif;color:#fff}
+#game-canvas{position:absolute;inset:0;width:100%;height:100%;z-index:1;touch-action:none}
+.hud{position:absolute;z-index:10}
+#top-left{top:15px;left:15px;display:flex;flex-direction:column;gap:8px}
+#minimap-card{background:rgba(0,0,0,.35);border:1px solid rgba(255,255,255,.12);border-radius:50%;width:110px;height:110px;overflow:hidden}
+#minimap{width:100%;height:100%;display:block}
+.tk{font:700 11px Orbitron,sans-serif;color:#14f195}.tk span{color:#fff}
+#leaderboard{top:15px;right:15px;min-width:190px;text-shadow:0 1px 3px #000}
+#leaderboard h3{font:700 15px Rajdhani,sans-serif;color:#fff;margin-bottom:4px;text-align:center}
+.lb{display:flex;justify-content:space-between;font-size:13px;font-weight:700;margin-bottom:1px;color:#b7bcc7}.lb.me{color:#fff}
+#br{bottom:15px;right:20px;text-align:right;font-size:18px;font-weight:700;text-shadow:0 2px 4px #000}
+#controls{bottom:15px;left:15px;display:flex;flex-direction:column;gap:8px}
+.btns{display:flex;gap:8px;flex-wrap:wrap}
+.btn{display:inline-flex;align-items:center;gap:6px;border-radius:10px;color:#fff;font:800 12px Orbitron,sans-serif;padding:9px 15px;cursor:pointer;text-decoration:none;background:linear-gradient(135deg,rgba(153,69,255,.4),rgba(20,241,149,.22));border:1px solid rgba(255,255,255,.25);backdrop-filter:blur(12px) saturate(170%);box-shadow:inset 0 1px 0 rgba(255,255,255,.3),0 6px 20px rgba(153,69,255,.25);transition:.2s}
+.btn:hover{transform:translateY(-2px);border-color:rgba(20,241,149,.85)}
+.btn.sec{background:rgba(255,255,255,.08);box-shadow:inset 0 1px 0 rgba(255,255,255,.15)}.btn.on{background:linear-gradient(135deg,rgba(20,241,149,.5),rgba(153,69,255,.3));border-color:rgba(20,241,149,.9)}
+.bar{width:160px;height:8px;background:rgba(0,0,0,.5);border-radius:4px;overflow:hidden;border:1px solid rgba(255,255,255,.2)}
+#battery-bar{height:100%;width:100%;background:linear-gradient(90deg,#ff4757,#14f195);transition:width .3s}
+.overlay{position:absolute;inset:0;background:rgba(0,0,0,.85);backdrop-filter:blur(8px);z-index:100;display:none;align-items:center;justify-content:center}
+.modal{background:#0e111a;border:1px solid #9945ff;border-radius:16px;width:92%;max-width:600px;max-height:85vh;overflow:auto;padding:24px;position:relative}
+.close{position:absolute;top:14px;right:16px;background:none;border:0;color:#888;font-size:22px;cursor:pointer}
+.modal h2{font:700 18px Orbitron,sans-serif;color:#14f195;margin-bottom:10px}
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px;margin-top:12px}
+.item{background:rgba(255,255,255,.03);border:1px solid rgba(153,69,255,.25);border-radius:10px;padding:12px;text-align:center;display:flex;flex-direction:column;align-items:center;gap:6px}
+#toast{position:absolute;top:70px;left:50%;transform:translateX(-50%);z-index:50;background:rgba(18,16,38,.95);border:1px solid #14f195;border-radius:8px;padding:8px 16px;font:700 13px Orbitron,sans-serif;opacity:0;transition:opacity .3s;pointer-events:none;white-space:nowrap}
+</style>
+</head>
+<body>
+<canvas id="game-canvas"></canvas>
+<div id="toast"></div>
+
+<div id="top-left" class="hud">
+  <div id="minimap-card"><canvas id="minimap" width="110" height="110"></canvas></div>
+  <div class="tk"><span data-i="bal">$SLITHERI (demo):</span> <span id="balance-display">0.00</span></div>
+  <div class="tk" style="color:#ff4757"><span data-i="brn">Burned 🔥:</span> <span id="burn-display">0</span></div>
+</div>
+<div id="leaderboard" class="hud"><h3 data-i="lb">LEADERBOARD</h3><div id="leader-list"></div></div>
+<div id="br" class="hud">
+  <div><span data-i="len">Your length:</span> <span id="snake-length">120</span></div>
+  <div style="font-size:14px;color:#aaa"><span data-i="rank">Your rank:</span> <span id="snake-rank" style="color:#f3ba2f">#1</span></div>
+</div>
+<div id="controls" class="hud">
+  <div class="btns">
+    <button class="btn" id="bot-btn">🤖 AUTO-BOT: OFF</button>
+    <select data-lang-select aria-label="Language"></select>
+    <button class="btn sec" id="shop-btn" data-i="shop">🛒 SHOP</button>
+    <button class="btn sec" id="info-btn" data-i="info">📜 INFO</button>
+    <button class="btn sec" data-wallet-btn>🔗 Connect Phantom</button>
+    <a class="btn sec" href="index.html" style="text-decoration:none" data-i="site">🏠 SITE</a>
+  </div>
+  <div class="bar"><div id="battery-bar"></div></div>
+</div>
+
+<div id="shop-modal" class="overlay"><div class="modal">
+  <button class="close" data-close="shop-modal">✕</button>
+  <h2 data-i="sh">$SLITHERI SHOP</h2>
+  <p style="color:#aaa;font-size:13px" data-i="shd">Demo balance: not on-chain yet.</p>
+  <div class="grid">
+    <div class="item"><div style="font-size:28px">🇧🇷</div><b data-i="skin">Brazil Skin</b><span class="tk">500</span><button class="btn" data-buy="Skin Brasil|500" data-i="buy">Buy</button></div>
+    <div class="item"><div style="font-size:28px">🧲</div><b data-i="mag">Super Magnet</b><span class="tk">800</span><button class="btn" data-buy="Super Ímã|800" data-i="buy">Buy</button></div>
+    <div class="item"><div style="font-size:28px">⚡</div><b data-i="bat">Battery 100%</b><span class="tk">200</span><button class="btn" id="recharge-btn" data-i="rech">Recharge</button></div>
+  </div>
+</div></div>
+<div id="info-modal" class="overlay"><div class="modal">
+  <button class="close" data-close="info-modal">✕</button>
+  <h2 data-i="ih">Solana Slither.Idle</h2>
+  <p style="color:#ccc;font-size:14px;line-height:1.6" data-i="ip">Demo version. Tokenomics and on-chain withdrawals (Phantom/Solflare wallet) are planned for upcoming versions.</p>
+</div></div>
+
+<script src="i18n.js"></script>
+<script src="wallet.js"></script>
+<script>
+const CONFIG = {WORLD: 3200, FOODS: 650, RIVALS: 14, SEG: 4, API_URL: null, TOKEN_MINT: null};
+const $ = id => document.getElementById(id);
+const canvas = $('game-canvas'), ctx = canvas.getContext('2d'), mini = $('minimap').getContext('2d');
+const W = CONFIG.WORLD, rnd = (a, b) => a + Math.random() * (b - a);
+const camera = {x: 0, y: 0};
+const coinImage = new Image(); coinImage.src = 'coin.png'; // coloque coin.png na mesma pasta do index.html
+
+const player = {x: W/2, y: W/2, angle: 0, speed: 3.6, radius: 14, length: 120, tokens: 0, segments: [], n: 0,
+  autoBot: false, invulnUntil: 0, get name() { return t('you'); }, colors: ['#ff007f', '#00ffcc']};
+let foods = [], rivals = [], mouseX = innerWidth/2, mouseY = innerHeight/2, botBattery = 100, totalBurned = 0, lastLB = 0;
+
+function resize(){ canvas.width = innerWidth; canvas.height = innerHeight; }
+addEventListener('resize', resize); resize();
+function toast(m){ const t = $('toast'); t.textContent = m; t.style.opacity = 1; clearTimeout(toast.id); toast.id = setTimeout(() => t.style.opacity = 0, 1800); }
+
+const ORB_COLORS = ['#ff4d4d','#ffd34d','#4dff88','#4dd2ff','#b44dff','#ff4dd2','#ffffff'];
+const ORBS = ORB_COLORS.map(c => {
+  const k = document.createElement('canvas'); k.width = k.height = 32; const g = k.getContext('2d');
+  const q = g.createRadialGradient(16, 16, 0, 16, 16, 16);
+  q.addColorStop(0, '#fff'); q.addColorStop(.25, c); q.addColorStop(.5, c + '66'); q.addColorStop(1, c + '00');
+  g.fillStyle = q; g.fillRect(0, 0, 32, 32); return k;
+});
+function newFood(x = rnd(0, W), y = rnd(0, W), big = Math.random() > .85) {
+  return {x, y, val: big ? 4 : 1, rad: big ? 10 : 5, col: Math.floor(Math.random() * ORB_COLORS.length)};
+}
+const SCHEMES = [['#ffffff','#cccccc'], ['#ff0000','#ffff00','#0000ff','#00ff00'], ['#2ed573','#1e90ff'], ['#ff4757','#ffa502']];
+const NAMES = ['Whoa','abcd','Kq','Mxxa','Sm0k3d','jcgonmor'];
+function makeRival(i) {
+  return {name: NAMES[i % 6] + (i >= 6 ? i : ''), x: rnd(200, W-200), y: rnd(200, W-200), angle: rnd(0, 6.28), speed: rnd(2.8, 3.4),
+    radius: 14, length: 100 + Math.floor(Math.random()*250), segments: [], n: 0, colors: SCHEMES[i % SCHEMES.length]};
+}
+for (let i = 0; i < CONFIG.FOODS; i++) foods.push(newFood());
+for (let i = 0; i < CONFIG.RIVALS; i++) rivals.push(makeRival(i));
+
+addEventListener('mousemove', e => { if (!player.autoBot) { mouseX = e.clientX; mouseY = e.clientY; } });
+addEventListener('touchmove', e => { if (!player.autoBot) { mouseX = e.touches[0].clientX; mouseY = e.touches[0].clientY; } }, {passive: true});
+
+// ---- Fundo hexagonal: um tile pré-renderizado repetido (rápido, rola junto com a câmera) ----
+const R = 44, TW = 132, TH = 76, RY = TH / Math.sqrt(3);
+const tile = document.createElement('canvas'); tile.width = TW; tile.height = TH;
+const tc = tile.getContext('2d'); tc.fillStyle = '#07090d'; tc.fillRect(0, 0, TW, TH);
+function hexPath(cx, cy, k) {
+  tc.beginPath();
+  for (let s = 0; s < 6; s++) { const a = s * Math.PI / 3; tc[s ? 'lineTo' : 'moveTo'](cx + R*k*Math.cos(a), cy + RY*k*Math.sin(a)); }
+  tc.closePath();
+}
+[[0,0],[TW,0],[0,TH],[TW,TH],[TW/2,TH/2],[TW/2,-TH/2],[TW/2,TH*1.5]].forEach(([cx, cy]) => {
+  const g = tc.createRadialGradient(cx, cy, 4, cx, cy, R);
+  g.addColorStop(0, '#1d2230'); g.addColorStop(1, '#10131a');
+  hexPath(cx, cy, 1); tc.fillStyle = g; tc.fill(); tc.lineWidth = 5; tc.strokeStyle = '#07090d'; tc.stroke();
+  hexPath(cx, cy, .9); tc.lineWidth = 1.5; tc.strokeStyle = '#2a3242'; tc.stroke();
+});
+const hexPattern = ctx.createPattern(tile, 'repeat');
+
+// ---- Bateria / bot ----
+function setBattery(v){ botBattery = Math.max(0, Math.min(100, v)); $('battery-bar').style.width = botBattery + '%'; }
+function setBot(on){ player.autoBot = on; $('bot-btn').textContent = t('bot') + ': ' + (on ? 'ON' : 'OFF'); $('bot-btn').classList.toggle('on', on); }
+$('bot-btn').onclick = () => { if (!player.autoBot && botBattery <= 0) return toast(t('tbat')); setBot(!player.autoBot); };
+
+function updateBot(k) {
+  if (!player.autoBot) return;
+  setBattery(botBattery - 0.05 * k);
+  if (botBattery <= 0) { setBot(false); toast(t('tbo')); return; }
+  let fd = 120 * 120, flee = null;
+  for (const r of rivals) for (let i = 0; i < r.segments.length; i += 4) {
+    const s = r.segments[i], d = (s.x-player.x)**2 + (s.y-player.y)**2;
+    if (d < fd) { fd = d; flee = s; }
+  }
+  if (flee) { player.angle = Math.atan2(player.y - flee.y, player.x - flee.x); return; }
+  if (player.x < 150 || player.x > W-150 || player.y < 150 || player.y > W-150) { player.angle = Math.atan2(W/2 - player.y, W/2 - player.x); return; }
+  let best = null, bd = Infinity;
+  for (const f of foods) { const d = (f.x-player.x)**2 + (f.y-player.y)**2; if (d < bd) { bd = d; best = f; } }
+  if (best) player.angle = Math.atan2(best.y - player.y, best.x - player.x);
+}
+
+// ---- Cobras ----
+function pushSeg(o) {
+  o.radius = 12 + Math.min(10, o.length / 150);   // engrossa conforme cresce
+  const l = o.segments[0];
+  if (!l || (o.x-l.x)**2 + (o.y-l.y)**2 >= CONFIG.SEG**2) {
+    o.segments.unshift({x: o.x, y: o.y, c: o.n++});   // c = id fixo: cores não "piscam" mais
+    if (o.segments.length > o.length / 4) o.segments.pop();
+  }
+}
+function eat(o, isPlayer) {
+  for (let i = foods.length - 1; i >= 0; i--) {
+    const f = foods[i], rr = o.radius + f.rad + 6;
+    if ((f.x-o.x)**2 + (f.y-o.y)**2 < rr*rr) { o.length += f.val * 3; if (isPlayer) player.tokens += f.val * 0.1; foods[i] = newFood(); }
+  }
+}
+function dropFood(o) {
+  for (let i = 0; i < o.segments.length; i += 5) foods.push(newFood(o.segments[i].x + rnd(-8,8), o.segments[i].y + rnd(-8,8), true));
+  if (foods.length > 1500) foods.splice(0, foods.length - 1500);
+}
+function killPlayer() {
+  dropFood(player); player.length = 120; player.segments = [];
+  player.x = rnd(400, W-400); player.y = rnd(400, W-400); player.invulnUntil = performance.now() + 2500;
+  toast(t('tdie'));
+}
+function killRival(i) {
+  dropFood(rivals[i]); rivals[i] = makeRival(i); player.tokens += 0.5; player.length += 30; toast(t('tkill'));
+}
+
+function update(k, now) {
+  updateBot(k);
+  if (!player.autoBot) player.angle = Math.atan2(mouseY - canvas.height/2, mouseX - canvas.width/2);
+  player.x = Math.max(0, Math.min(W, player.x + Math.cos(player.angle) * player.speed * k));
+  player.y = Math.max(0, Math.min(W, player.y + Math.sin(player.angle) * player.speed * k));
+  pushSeg(player); eat(player, true);
+  camera.x = player.x - canvas.width/2; camera.y = player.y - canvas.height/2;
+
+  for (const r of rivals) {
+    r.angle += (Math.random() - .5) * 0.15 * k;
+    if (r.x < 150 || r.x > W-150 || r.y < 150 || r.y > W-150) r.angle = Math.atan2(W/2 - r.y, W/2 - r.x);
+    r.x += Math.cos(r.angle) * r.speed * k; r.y += Math.sin(r.angle) * r.speed * k;
+    pushSeg(r); eat(r, false);
+  }
+  const hit = 24 * 24, safe = now < player.invulnUntil;
+  for (let i = 0; i < rivals.length; i++) {
+    const r = rivals[i];
+    if (!safe) for (let s = 3; s < r.segments.length; s += 2) {
+      const g = r.segments[s];
+      if ((g.x-player.x)**2 + (g.y-player.y)**2 < hit) { killPlayer(); return; }
+    }
+    for (let s = 6; s < player.segments.length; s += 2) {
+      const g = player.segments[s];
+      if ((g.x-r.x)**2 + (g.y-r.y)**2 < hit) { killRival(i); break; }
+    }
+  }
+  $('balance-display').textContent = player.tokens.toFixed(2);
+  $('snake-length').textContent = Math.floor(player.length);
+  if (now - lastLB > 250) { lastLB = now; updateLeaderboard(); }
+}
+function updateLeaderboard() {
+  const list = [{name: t('you'), score: Math.floor(player.length * 10), me: true}];
+  rivals.forEach(r => list.push({name: r.name, score: Math.floor(r.length * 10), me: false}));
+  list.sort((a, b) => b.score - a.score);
+  $('snake-rank').textContent = (list.findIndex(x => x.me) + 1) + ' ' + t('of') + ' ' + list.length;
+  $('leader-list').innerHTML = list.slice(0, 6).map((it, i) => `<div class="lb ${it.me ? 'me' : ''}"><span>#${i+1} ${it.name}</span><span>${it.score}</span></div>`).join('');
+}
+
+// ---- Render ----
+const SPR = {};
+function shade(hex, a) {
+  const n = parseInt(hex.slice(1), 16), t = a < 0 ? 0 : 255, p = Math.abs(a);
+  return 'rgb(' + [n >> 16, (n >> 8) & 255, n & 255].map(v => Math.round((t - v) * p + v)) + ')';
+}
+function sprites(color) {
+  if (SPR[color]) return SPR[color];
+  const S = 28, H = 64, mk = n => { const c = document.createElement('canvas'); c.width = c.height = n; return [c, c.getContext('2d')]; };
+  const [body, b] = mk(S), [halo, h] = mk(H);
+  const g = b.createRadialGradient(S*.38, S*.34, 1, S/2, S/2, S/2);
+  g.addColorStop(0, shade(color, .6)); g.addColorStop(.45, color); g.addColorStop(1, shade(color, -.55));
+  b.fillStyle = g; b.beginPath(); b.arc(S/2, S/2, S/2, 0, 6.28); b.fill();
+  const q = h.createRadialGradient(H/2, H/2, S*.2, H/2, H/2, H/2);
+  q.addColorStop(0, color); q.addColorStop(1, 'rgba(0,0,0,0)');
+  h.fillStyle = q; h.fillRect(0, 0, H, H);
+  return SPR[color] = {body, halo};
+}
+function drawSnake(sn, isPlayer, now) {
+  const sg = sn.segments; if (!sg.length) return;
+  const head = sg[0], r = sn.radius, d = r * 2, m = r * 3;
+  const vis = s => s.x > camera.x-m && s.x < camera.x+canvas.width+m && s.y > camera.y-m && s.y < camera.y+canvas.height+m;
+  const col = s => sn.colors[Math.floor(s.c / 3) % sn.colors.length];
+  ctx.globalAlpha = (isPlayer && now < player.invulnUntil) ? .5 : 1;
+  if (isPlayer) {
+    ctx.save(); ctx.translate(head.x, head.y); ctx.rotate(sn.angle); ctx.fillStyle = '#14f195';
+    for (const s of [-1, 1]) { ctx.beginPath(); ctx.ellipse(-5, s * r * 1.4, 12, 5, -s * Math.PI / 4, 0, 6.28); ctx.fill(); }
+    ctx.restore();
+  }
+  ctx.save(); ctx.globalAlpha *= .22;           // brilho ao redor do corpo
+  for (let i = sg.length - 1; i >= 0; i -= 2) { const s = sg[i]; if (!vis(s)) continue; const hs = d * 2.3; ctx.drawImage(sprites(col(s)).halo, s.x - hs/2, s.y - hs/2, hs, hs); }
+  ctx.restore();
+  for (let i = sg.length - 1; i >= 0; i--) { const s = sg[i]; if (!vis(s)) continue; ctx.drawImage(sprites(col(s)).body, s.x - r, s.y - r, d, d); }
+  ctx.save(); ctx.translate(head.x, head.y); ctx.rotate(sn.angle);
+  for (const ey of [-r * .5, r * .5]) {
+    ctx.beginPath(); ctx.arc(r * .45, ey, r * .42, 0, 6.28); ctx.fillStyle = '#fff'; ctx.fill();
+    ctx.beginPath(); ctx.arc(r * .6, ey, r * .2, 0, 6.28); ctx.fillStyle = '#000'; ctx.fill();
+  }
+  ctx.restore();
+  ctx.font = 'bold 12px Rajdhani, sans-serif'; ctx.textAlign = 'center'; ctx.fillStyle = 'rgba(255,255,255,.75)';
+  ctx.fillText(sn.name, head.x, head.y + r + 18);
+  ctx.globalAlpha = 1;
+}
+function render(now) {
+  ctx.fillStyle = '#05070a'; ctx.fillRect(0, 0, canvas.width, canvas.height);
+  ctx.save(); ctx.translate(-camera.x, -camera.y);
+  ctx.fillStyle = hexPattern; ctx.fillRect(0, 0, W, W);
+  ctx.strokeStyle = '#ff4757'; ctx.lineWidth = 6; ctx.strokeRect(0, 0, W, W);
+  const ok = coinImage.complete && coinImage.naturalWidth > 0;
+  for (const f of foods) {
+    if (f.x < camera.x-30 || f.x > camera.x+canvas.width+30 || f.y < camera.y-30 || f.y > camera.y+canvas.height+30) continue;
+    const p = 1 + .12 * Math.sin(now / 280 + f.x), s = f.rad * 3.2 * p;
+    ctx.drawImage(ORBS[f.col], f.x - s/2, f.y - s/2, s, s);
+    if (f.val > 1 && ok) { const c = f.rad * 2 * p; ctx.drawImage(coinImage, f.x - c/2, f.y - c/2, c, c); }
+  }
+  rivals.forEach(r => drawSnake(r, false, now)); drawSnake(player, true, now);
+  ctx.restore();
+  const cx = canvas.width / 2, cy = canvas.height / 2, vg = ctx.createRadialGradient(cx, cy, Math.min(cx, cy) * .9, cx, cy, Math.max(cx, cy) * 1.5);
+  vg.addColorStop(0, 'rgba(0,0,0,0)'); vg.addColorStop(1, 'rgba(0,0,0,.55)'); ctx.fillStyle = vg; ctx.fillRect(0, 0, canvas.width, canvas.height);
+  const sc = 110 / W; mini.clearRect(0, 0, 110, 110);
+  mini.fillStyle = '#ff4757'; rivals.forEach(r => { mini.beginPath(); mini.arc(r.x*sc, r.y*sc, 2, 0, 6.28); mini.fill(); });
+  mini.fillStyle = '#14f195'; mini.beginPath(); mini.arc(player.x*sc, player.y*sc, 3.5, 0, 6.28); mini.fill();
+}
+
+// ---- UI ----
+$('shop-btn').onclick = () => $('shop-modal').style.display = 'flex';
+$('info-btn').onclick = () => $('info-modal').style.display = 'flex';
+document.querySelectorAll('[data-close]').forEach(b => b.onclick = () => $(b.dataset.close).style.display = 'none');
+function spend(c){ if (player.tokens < c) { toast(t('tpoor')); return false; } player.tokens -= c; return true; }
+document.querySelectorAll('[data-buy]').forEach(b => b.onclick = () => {
+  const [n, c] = b.dataset.buy.split('|');
+  if (spend(+c)) { totalBurned += c * .5; $('burn-display').textContent = Math.floor(totalBurned).toLocaleString(window.LANGLOC); toast(t('tbuy')); }
+});
+$('recharge-btn').onclick = () => { if (spend(200)) { setBattery(100); toast(t('tb100')); } };
+
+let last = performance.now();
+function loop(now) {
+  const k = Math.min((now - last) / 16.667, 3); last = now;
+  update(k, now); render(now); requestAnimationFrame(loop);
+}
+addEventListener('langchange', () => { setBot(player.autoBot); updateLeaderboard(); });
+requestAnimationFrame(loop);
+</script>
+</body>
+</html>
