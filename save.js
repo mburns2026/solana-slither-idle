@@ -2,11 +2,7 @@
 // Regras espelham a economia real: teto diário com retorno decrescente, sem multiplicadores, sinks com queima.
 (function () {
   const KEY = 'slitheri_save_v1', CAP = 300, FAUCET = 250, FAUCET_MS = 864e5, VIP_PRICE = 250;
-  const SKINS = [
-    {id: 0, price: 0,    colors: ['#ff007f', '#00ffcc'], magnet: 0},
-    {id: 1, price: 500,  colors: ['#00f2fe', '#4facfe'], magnet: 0},
-    {id: 2, price: 1500, colors: ['#ffffff', '#f3ba2f'], magnet: 30},
-    {id: 3, price: 3000, colors: ['#9945ff', '#14f195'], magnet: 50}];
+  const SKINS = window.SKINS;   // catálogo em skins.js (carregar antes)
   const day = () => new Date(Date.now() - new Date().getTimezoneOffset() * 6e4).toISOString().slice(0, 10);
   let mem = null;
   const read = () => { try { return localStorage.getItem(KEY); } catch (e) { return mem; } };

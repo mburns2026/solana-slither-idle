@@ -83,6 +83,8 @@ footer{text-align:center;padding:36px 5% 56px;color:#7c8497;font-size:14px;borde
 .price{font:800 13px Orbitron;color:#f3ba2f;margin:10px 0 14px}
 #toast{position:fixed;top:90px;left:50%;transform:translateX(-50%);z-index:100;background:rgba(12,14,24,.9);backdrop-filter:blur(14px);border:1px solid var(--g);border-radius:12px;padding:10px 24px;font:700 14px Orbitron;opacity:0;transition:opacity .3s;pointer-events:none;box-shadow:0 0 24px rgba(20,241,149,.35)}
 @media(max-width:760px){.wal{grid-template-columns:1fr}}
+.tabs{display:flex;gap:8px;flex-wrap:wrap;justify-content:center;margin-bottom:22px}.tab.on{border-color:var(--g);background:linear-gradient(135deg,rgba(20,241,149,.35),rgba(153,69,255,.2))}
+.sk{position:relative}.badge{position:absolute;top:10px;right:14px;font:800 10px Orbitron}
 </style>
 </head><body>
 <div id="toast"></div>
@@ -106,45 +108,54 @@ footer{text-align:center;padding:36px 5% 56px;color:#7c8497;font-size:14px;borde
     <button class="btn gold" id="vipb"></button>
   </div>
   <h3 style="text-align:center;margin-bottom:18px;color:#fff" data-i="skh">SNAKE SKINS</h3>
-  <div class="grid"><div class="card sk"><canvas class="pv" data-skin="0" width="190" height="56"></canvas><div><h3 data-i="sk0">Classic Neon</h3><p data-i="sk0d">Default skin.</p></div><div><div class="price"><span data-i="sfree">FREE</span></div><button class="btn" data-skin-btn="0"></button></div></div><div class="card sk"><canvas class="pv" data-skin="1" width="190" height="56"></canvas><div><h3 data-i="sk1">⚡ Cyber-Viper</h3><p data-i="sk1d">Cosmetic: electric blue glow.</p></div><div><div class="price">500 tSLITHERI</div><button class="btn" data-skin-btn="1"></button></div></div><div class="card sk"><canvas class="pv" data-skin="2" width="190" height="56"></canvas><div><h3 data-i="sk2">💎 Diamond $HODL</h3><p data-i="sk2d">Cosmetic + small coin magnet (+30).</p></div><div><div class="price">1,500 tSLITHERI</div><button class="btn" data-skin-btn="2"></button></div></div><div class="card sk"><canvas class="pv" data-skin="3" width="190" height="56"></canvas><div><h3 data-i="sk3">🔥 Solana Plasma</h3><p data-i="sk3d">Cosmetic + medium coin magnet (+50).</p></div><div><div class="price">3,000 tSLITHERI</div><button class="btn" data-skin-btn="3"></button></div></div></div>
+  <div class="tabs" id="tabs"></div>
+  <div class="grid" id="skin-grid"></div>
   <p class="sub" style="margin-top:30px;font-size:15px" data-i="snote">Skins never boost earnings: rewards come from a capped daily pool, so money cannot push anyone past the limit. Every purchase burns 50% and returns 50% to the pool.</p>
 </section>
 <footer><div class="soc"><a class="btn dc" href="#" data-soc="dc" rel="noopener">💬 Discord</a></div><p data-i="ft">© Solana Slither.Idle — Independent project, not affiliated with Solana Foundation, Phantom, pump.fun or slither.io.</p></footer>
 <script src="i18n.js"></script>
+<script src="skins.js"></script>
 <script src="save.js"></script>
 <script src="config.js"></script>
 <script src="wallet.js"></script>
 <script>
 const $ = id => document.getElementById(id);
 function toast(m){ const e = $('toast'); e.textContent = m; e.style.opacity = 1; clearTimeout(toast.i); toast.i = setTimeout(() => e.style.opacity = 0, 2200); }
-function drawPrev(c, cols) {
-  const x = c.getContext('2d'); x.clearRect(0, 0, c.width, c.height);
-  for (let i = 9; i >= 0; i--) {
-    const px = 24 + (9 - i) * 15, py = 28 + Math.sin(i * .8) * 9, col = cols[Math.floor(i / 3) % cols.length];
-    const g = x.createRadialGradient(px - 4, py - 4, 1, px, py, 13);
-    g.addColorStop(0, 'rgba(255,255,255,.85)'); g.addColorStop(.4, col); g.addColorStop(1, 'rgba(0,0,0,.65)');
-    x.fillStyle = g; x.beginPath(); x.arc(px, py, 13, 0, 6.28); x.fill();
-  }
-  x.fillStyle = '#fff'; x.beginPath(); x.arc(160, 22, 4, 0, 6.28); x.arc(160, 34, 4, 0, 6.28); x.fill();
-  x.fillStyle = '#000'; x.beginPath(); x.arc(162, 22, 2, 0, 6.28); x.arc(162, 34, 2, 0, 6.28); x.fill();
+const L = () => ({en: 0, pt: 1, es: 2, zh: 3})[document.documentElement.lang] || 0;
+const TABS = ['all', 'flag', 'color', 'model', 'premium']; let tab = 'all';
+function buildTabs() { $('tabs').innerHTML = TABS.map((k, i) => '<button class="btn s tab' + (tab === k ? ' on' : '') + '" data-tab="' + k + '">' + Skins.TABS[L()][i] + '</button>').join(''); }
+function buildGrid() {
+  const l = L();
+  $('skin-grid').innerHTML = SKINS.filter(sk => tab === 'all' || (tab === 'premium' ? sk.tier >= 3 : sk.cat === tab)).map(sk =>
+    '<div class="card sk" style="border-color:' + Skins.TIER_COLORS[sk.tier] + '66"><span class="badge" style="color:' + Skins.TIER_COLORS[sk.tier] + '">' + Skins.TIER[sk.tier][l] + '</span>' +
+    '<canvas class="pv" data-skin="' + sk.id + '" width="190" height="56"></canvas><div><h3>' + Skins.name(sk, l) + '</h3><p>' + Skins.perk(sk, l) + '</p></div>' +
+    '<div><div class="price">' + (sk.price ? sk.price.toLocaleString(window.LANGLOC) + ' tSLITHERI' : Skins.FREE[l]) + '</div><button class="btn" data-skin-btn="' + sk.id + '"></button></div></div>').join('');
+  document.querySelectorAll('.pv').forEach(c => Skins.preview(c, SKINS[+c.dataset.skin], 0)); states();
 }
-document.querySelectorAll('.pv').forEach(c => drawPrev(c, Save.SKINS[+c.dataset.skin].colors));
-function render() {
-  const s = Save.s; $('bal').textContent = s.bal.toFixed(2); $('pts').textContent = s.pts;
-  $('dtxt').textContent = Math.floor(s.today) + ' / ' + Save.CAP; $('dbar').style.width = Math.min(100, s.today / Save.CAP * 100) + '%';
-  const v = $('vipb'); v.textContent = s.vip ? t('svipon') : t('svipb'); v.classList.toggle('on', s.vip);
+function states() {
+  const s = Save.s;
   document.querySelectorAll('[data-skin-btn]').forEach(b => {
     const id = +b.dataset.skinBtn, own = s.owned.includes(id);
     b.textContent = !own ? t('sbuy') : s.skin === id ? t('seqd') : t('seq'); b.classList.toggle('on', own && s.skin === id);
   });
+}
+function render() {
+  const s = Save.s; $('bal').textContent = s.bal.toFixed(2); $('pts').textContent = s.pts;
+  $('dtxt').textContent = Math.floor(s.today) + ' / ' + Save.CAP; $('dbar').style.width = Math.min(100, s.today / Save.CAP * 100) + '%';
+  const v = $('vipb'); v.textContent = s.vip ? t('svipon') : t('svipb'); v.classList.toggle('on', s.vip);
   const w = Save.faucetWait();
   $('fq').textContent = w > 0 ? t('sfqw') + ' ' + Math.floor(w / 36e5) + 'h ' + (Math.floor(w / 6e4) % 60) + 'm' : t('sfqb');
+  states();
 }
+$('tabs').onclick = e => { const b = e.target.closest('[data-tab]'); if (b) { tab = b.dataset.tab; buildTabs(); buildGrid(); } };
+$('skin-grid').onclick = e => { const b = e.target.closest('[data-skin-btn]'); if (b) toast(Save.buySkin(+b.dataset.skinBtn) === 'ok' ? t('tSk') : t('tNo')); };
 $('fq').onclick = () => toast(Save.claim().ok ? t('tFq') : t('tWait'));
 $('vipb').onclick = () => { const r = Save.buyVip(); if (r === 'ok') toast(t('tVip')); else if (r === 'poor') toast(t('tNo')); };
-document.querySelectorAll('[data-skin-btn]').forEach(b => b.onclick = () => { const r = Save.buySkin(+b.dataset.skinBtn); toast(r === 'ok' ? t('tSk') : t('tNo')); });
 document.querySelectorAll('[data-soc="dc"]').forEach(a => { const u = SITE.SOCIAL.dc; if (u) { a.href = u; a.target = '_blank'; } else a.style.display = 'none'; });
-addEventListener('savechange', render); addEventListener('langchange', render); setInterval(render, 20000); render();
+setInterval(() => document.querySelectorAll('.pv').forEach(c => { const sk = SKINS[+c.dataset.skin]; if (sk.anim) Skins.preview(c, sk, performance.now()); }), 100);
+addEventListener('savechange', render); setInterval(render, 20000);
+addEventListener('langchange', () => { buildTabs(); buildGrid(); render(); });
+buildTabs(); buildGrid(); render();
 </script>
 </body>
 </html>
