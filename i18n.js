@@ -101,8 +101,9 @@ qok:["🎯 Missão concluída! +5 pontos (prévia)","🎯 ¡Misión completada! 
 tuh:["COMO JOGAR","CÓMO JUGAR","玩法说明"],tu1:["🖱️ Mova: a cobra segue o mouse (ou o dedo/joystick).","🖱️ Mueve: la serpiente sigue el ratón (o el dedo/joystick).","🖱️ 移动:蛇会跟随鼠标(或手指/摇杆)。"],
 tu2:["🪙 Coma moedas para crescer e ganhar tSLITHERI (há um teto diário).","🪙 Come monedas para crecer y ganar tSLITHERI (hay un tope diario).","🪙 吃金币来变长并赚取 tSLITHERI(有每日上限)。"],
 tu3:["⚡ Segure o clique esquerdo / ESPAÇO para acelerar. Rajadas curtas são grátis; turbo longo queima tokens.","⚡ Mantén clic izquierdo / ESPACIO para acelerar. Las ráfagas cortas son gratis; el turbo largo quema tokens.","⚡ 按住鼠标左键 / 空格加速。短时免费,长时间加速会销毁代币。"],
-tu4:["💀 Encostou no corpo de outra cobra, você morre. Faça os rivais baterem no seu corpo para eliminá-los.","💀 Si tocas el cuerpo de otra serpiente, mueres. Haz que los rivales choquen con tu cuerpo para eliminarlos.","💀 碰到其他蛇的身体就会死亡。让对手撞上你的身体即可击败他们。"],tub:["COMEÇAR A JOGAR","EMPEZAR A JUGAR","开始游戏"],
+tu4:["💀 Encostou no corpo de outra cobra ou na parede vermelha, você morre. Faça os rivais baterem no seu corpo para eliminá-los.","💀 Si tocas el cuerpo de otra serpiente o la pared roja, mueres. Haz que los rivales choquen con tu cuerpo para eliminarlos.","💀 碰到其他蛇的身体或红色围墙就会死亡。让对手撞上你的身体即可击败他们。"],tub:["COMEÇAR A JOGAR","EMPEZAR A JUGAR","开始游戏"],
 spts:["Pontos do airdrop (prévia):","Puntos del airdrop (vista previa):","空投积分(预览):"],
+twall:["💥 Você bateu na parede!","💥 ¡Chocaste con la pared!","💥 你撞墙了!"],
 // ---- JS / jogo ----
 cd0:["🚀 Token e jogo lançam no mesmo dia — data em breve","🚀 Token y juego se lanzan el mismo día — fecha próximamente","🚀 代币与游戏同日上线 — 日期即将公布"],cd1:["🚀 Já lançado!","🚀 ¡Ya lanzado!","🚀 已上线!"],cd2:["🚀 Lançamento em","🚀 Lanzamiento en","🚀 距离上线"],
 wc:["🔗 Conectar Phantom","🔗 Conectar Phantom","🔗 连接 Phantom"],wd:["Clique para desconectar","Haz clic para desconectar","点击断开连接"],wt:["Conectar carteira Phantom","Conectar billetera Phantom","连接 Phantom 钱包"],wn:["Phantom não encontrada. Instale a extensão e recarregue a página.","Phantom no encontrada. Instala la extensión y recarga la página.","未检测到 Phantom。请安装扩展程序并刷新页面。"],
@@ -117,7 +118,7 @@ cd0:"🚀 Token and game launch on the same day — date coming soon",cd1:"🚀 
 tbat:"Battery empty! Recharge in the shop.",tbo:"Bot battery ran out",tdie:"💀 You died! Respawning...",tkill:"🔥 Rival eliminated! +0.5 $SLITHERI",tpoor:"Not enough $SLITHERI!",tbuy:"Item purchased!",tb100:"Battery 100%",
 sbuy:"BUY",seq:"EQUIP",seqd:"EQUIPPED",svipb:"ACTIVATE VIP (250)",svipon:"VIP ACTIVE 👑",sfqb:"🎁 CLAIM 250 tSLITHERI",sfqw:"⏳ Next claim in",
 tNo:"Not enough tSLITHERI!",tSk:"Skin equipped!",tVip:"VIP activated!",tFq:"+250 tSLITHERI claimed!",tWait:"Faucet not ready yet",
-fk:"🔥 You eliminated",fcap:"⚠ Daily rewards below 25% — keep playing for score and rank.",fcap2:"⚠ Daily reward cap almost reached. It resets tomorrow.",tNb:"Not enough tSLITHERI to boost",
+fk:"🔥 You eliminated",fcap:"⚠ Daily rewards below 25% — keep playing for score and rank.",fcap2:"⚠ Daily reward cap almost reached. It resets tomorrow.",tNb:"Not enough tSLITHERI to boost",twall:"💥 You hit the wall!",
 qc:"Collect 60 coins",qk:"Eliminate 3 rivals",qbo:"Boost for 15 seconds",qp:"Play for 5 minutes",ql:"Reach length 500",qok:"🎯 Quest complete! +5 points (preview)",qdone:"DONE ✓",stkm:"KILL STREAK!",
 btw:"Live data starts at the token launch.",bte:"Could not reach the network. Retrying…"};
 const LANGS = {en:'English', pt:'Português', es:'Español', zh:'中文'}, IDX = {pt:0, es:1, zh:2}, LOC = {en:'en-US', pt:'pt-BR', es:'es-ES', zh:'zh-CN'};

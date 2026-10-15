@@ -38,11 +38,12 @@ html,body{width:100%;height:100%;overflow:hidden;background:#05070a;font-family:
 #feed div{background:rgba(10,12,20,.6);border:1px solid rgba(255,255,255,.1);backdrop-filter:blur(8px);border-radius:8px;padding:4px 10px;font-size:13px;animation:fi .3s}
 @keyframes fi{from{opacity:0;transform:translateX(-10px)}}
 .dbar{width:120px;height:5px;background:rgba(0,0,0,.5);border-radius:3px;overflow:hidden}.dbar i{display:block;height:100%;width:0;background:linear-gradient(90deg,#f3ba2f,#14f195)}
-#boost-hud{bottom:15px;left:50%;transform:translateX(-50%);display:flex;flex-direction:column;align-items:center;gap:5px;text-shadow:0 1px 3px #000;font-size:12px;color:#b7bcc7;text-align:center}
-#boost-btn{padding:12px 26px;font-size:13px;touch-action:none}
+#boost-hud{bottom:118px;right:20px;display:flex;flex-direction:column;align-items:flex-end;gap:5px;text-shadow:0 1px 3px #000;font-size:12px;color:#b7bcc7;text-align:right;max-width:280px}
+#boost-btn{display:none;padding:12px 26px;font-size:13px;touch-action:none}
+#warn{position:absolute;inset:0;z-index:5;pointer-events:none;box-shadow:inset 0 0 140px 50px rgba(255,40,70,.65);opacity:0}
 #joy{display:none;bottom:130px;left:25px;width:120px;height:120px;border-radius:50%;background:rgba(255,255,255,.07);border:1px solid rgba(255,255,255,.25);backdrop-filter:blur(8px);touch-action:none}
 #joy-k{position:absolute;left:35px;top:35px;width:50px;height:50px;border-radius:50%;background:rgba(20,241,149,.35);border:1px solid rgba(20,241,149,.8);pointer-events:none}
-@media(pointer:coarse){#boost-hud{left:auto;right:18px;bottom:90px;transform:none}#feed{display:none}#joy{display:block}}
+@media(pointer:coarse){#boost-hud{left:auto;right:18px;bottom:90px;transform:none}#feed{display:none}#joy{display:block}#boost-btn{display:inline-flex}}
 .qrow{margin:14px 0}.qrow span{display:flex;justify-content:space-between;font-size:14px}.qrow em{font-style:normal;color:#14f195}.qrow .dbar{width:100%;height:8px;margin-top:5px}
 .tut li{margin:10px 0 10px 18px;line-height:1.5;color:#cbd0dc}
 </style>
@@ -50,6 +51,7 @@ html,body{width:100%;height:100%;overflow:hidden;background:#05070a;font-family:
 <body>
 <canvas id="game-canvas"></canvas>
 <div id="toast"></div>
+<div id="warn"></div>
 
 <div id="top-left" class="hud">
   <div id="minimap-card"><canvas id="minimap" width="110" height="110"></canvas></div>
@@ -102,7 +104,7 @@ html,body{width:100%;height:100%;overflow:hidden;background:#05070a;font-family:
 </div></div>
 <div id="tut-modal" class="overlay"><div class="modal">
   <h2 data-i="tuh">HOW TO PLAY</h2>
-  <ul class="tut"><li data-i="tu1">🖱️ Move: your snake follows the mouse (or your finger/joystick).</li><li data-i="tu2">🪙 Eat coins to grow and earn tSLITHERI (a daily cap applies).</li><li data-i="tu3">⚡ Hold left click / SPACE to boost. Short bursts are free; long boosts burn tokens.</li><li data-i="tu4">💀 Touch another snake's body and you die. Make rivals hit your body to eliminate them.</li></ul>
+  <ul class="tut"><li data-i="tu1">🖱️ Move: your snake follows the mouse (or your finger/joystick).</li><li data-i="tu2">🪙 Eat coins to grow and earn tSLITHERI (a daily cap applies).</li><li data-i="tu3">⚡ Hold left click / SPACE to boost. Short bursts are free; long boosts burn tokens.</li><li data-i="tu4">💀 Touch another snake's body or the red wall and you die. Make rivals hit your body to eliminate them.</li></ul>
   <button class="btn" id="tut-go" data-i="tub" style="margin-top:12px">START PLAYING</button>
 </div></div>
 <script src="i18n.js"></script>
@@ -111,16 +113,16 @@ html,body{width:100%;height:100%;overflow:hidden;background:#05070a;font-family:
 <script src="config.js"></script>
 <script src="wallet.js"></script>
 <script>
-const CONFIG = {WORLD: 3200, FOODS: 650, RIVALS: 14, SEG: 4, API_URL: null, TOKEN_MINT: null};
+const CONFIG = {WORLD: 7000, FOODS: 3000, MAXF: 4500, RIVALS: 24, SEG: 6, API_URL: null, TOKEN_MINT: null};
 const $ = id => document.getElementById(id);
-const canvas = $('game-canvas'), ctx = canvas.getContext('2d'), mini = $('minimap').getContext('2d');
+const canvas = $('game-canvas'), ctx = canvas.getContext('2d', {alpha: false}), mini = $('minimap').getContext('2d');
 const W = CONFIG.WORLD, WR = CONFIG.WORLD / 2, rnd = (a, b) => a + Math.random() * (b - a);
 const camera = {x: 0, y: 0, z: 1, w: innerWidth, h: innerHeight};
 const coinImage = new Image(); coinImage.src = 'coin.png'; // coloque coin.png na mesma pasta do index.html
 
 const player = {x: W/2, y: W/2, angle: 0, speed: 3.6, radius: 14, length: 120, score: 120, tokens: 0, segments: [], n: 0,
   autoBot: false, invulnUntil: 0, get name() { return t('you'); }, sk: Save.skin()};
-let foods = [], rivals = [], mouseX = innerWidth/2, mouseY = innerHeight/2, botBattery = 100, totalBurned = 0, lastLB = 0;
+let rivals = [], mouseX = innerWidth/2, mouseY = innerHeight/2, botBattery = 100, totalBurned = 0, lastLB = 0;
 
 const MAGNET = Save.skin().magnet; let warned = 0;
 const FREE_ENERGY = 100, BOOST_COST = 0.1;   // FREE_ENERGY = 0 faz todo turbo custar tokens
@@ -157,6 +159,9 @@ const parts = []; let shake = 0, streak = 0, wasBoost = false, lastFlush = 0;
 const prog = {coins: 0, kills: 0, boost: 0, play: 0, len: 0};
 function spark(x, y, c) { for (let i = 0; i < 3 && parts.length < 300; i++) parts.push({x, y, vx: rnd(-1.5, 1.5), vy: rnd(-1.5, 1.5), life: 18, max: 18, c, r: rnd(1.5, 3)}); }
 function burst(x, y, c, n) { for (let i = 0; i < n && parts.length < 300; i++) { const a = rnd(0, 6.28), s = rnd(1, 6); parts.push({x, y, vx: Math.cos(a) * s, vy: Math.sin(a) * s, life: 40, max: 40, c, r: rnd(2, 5)}); } }
+const E = {bal: $('balance-display'), burn: $('burn-display'), daily: $('daily-display'), dbar: $('daily-bar'), en: $('en-bar'), len: $('snake-length'), warn: $('warn')};
+function setTxt(el, v) { if (el._v !== v) { el._v = v; el.textContent = v; } }
+function setW(el, v) { v = Math.round(v); if (el._w !== v) { el._w = v; el.style.width = v + '%'; } }
 function resize(){ canvas.width = innerWidth; canvas.height = innerHeight; }
 addEventListener('resize', resize); resize();
 function toast(m){ const t = $('toast'); t.textContent = m; t.style.opacity = 1; clearTimeout(toast.id); toast.id = setTimeout(() => t.style.opacity = 0, 1800); }
@@ -168,7 +173,17 @@ const ORBS = ORB_COLORS.map(c => {
   q.addColorStop(0, '#fff'); q.addColorStop(.25, c); q.addColorStop(.5, c + '66'); q.addColorStop(1, c + '00');
   g.fillStyle = q; g.fillRect(0, 0, 32, 32); return k;
 });
-function rndPt() { const a = Math.random() * 6.28, d = Math.sqrt(Math.random()) * (WR - 40); return [W/2 + Math.cos(a) * d, W/2 + Math.sin(a) * d]; }
+// Grade espacial: comer/buscar só olha células vizinhas (essencial para um mapa grande)
+const CELL = 220, grid = new Map(), drops = []; let foodCount = 0;
+function addFood(f) { const k = ((f.x / CELL) | 0) * 4096 + ((f.y / CELL) | 0); let c = grid.get(k); if (!c) grid.set(k, c = []); c.push(f); f.k = k; foodCount++; }
+function delFood(f) { const c = grid.get(f.k), i = c.indexOf(f); if (i >= 0) { c[i] = c[c.length - 1]; c.pop(); } f.dead = true; foodCount--; }
+function addDrop(f) { addFood(f); drops.push(f); while (foodCount > CONFIG.MAXF && drops.length) { const q = drops.shift(); if (!q.dead) delFood(q); } }
+function nearFoods(x, y, R) {
+  const out = [], x0 = Math.max(0, ((x - R) / CELL) | 0), x1 = ((x + R) / CELL) | 0, y0 = Math.max(0, ((y - R) / CELL) | 0), y1 = ((y + R) / CELL) | 0;
+  for (let cx = x0; cx <= x1; cx++) for (let cy = y0; cy <= y1; cy++) { const c = grid.get(cx * 4096 + cy); if (c) for (let i = 0; i < c.length; i++) out.push(c[i]); }
+  return out;
+}
+function rndPt(m = 60) { const a = Math.random() * 6.28, d = Math.sqrt(Math.random()) * (WR - m); return [W/2 + Math.cos(a) * d, W/2 + Math.sin(a) * d]; }
 function newFood(x, y, big = Math.random() > .85) {
   if (x === undefined) [x, y] = rndPt();
   return {x, y, val: big ? 4 : 1, rad: big ? 10 : 5, col: Math.floor(Math.random() * ORB_COLORS.length)};
@@ -176,12 +191,12 @@ function newFood(x, y, big = Math.random() > .85) {
 const SCHEMES = [['#ffffff','#cccccc'], ['#ff0000','#ffff00','#0000ff','#00ff00'], ['#2ed573','#1e90ff'], ['#ff4757','#ffa502']];
 const NAMES = ['Whoa','abcd','Kq','Mxxa','Sm0k3d','jcgonmor'];
 function makeRival(i) {
-  const [px, py] = rndPt();
+  const [px, py] = rndPt(400);
   const rv = {ta: 0, nt: 0, hunt: false, aggr: Math.random() < .5, name: NAMES[i % 6] + (i >= 6 ? i : ''), x: px, y: py, angle: rnd(0, 6.28), speed: rnd(2.8, 3.4),
     radius: 14, length: 100 + Math.floor(Math.random()*250), segments: [], n: 0, sk: SKINS[Math.floor(Math.random() * SKINS.length)]};
   rv.score = rv.length; return rv;
 }
-for (let i = 0; i < CONFIG.FOODS; i++) foods.push(newFood());
+for (let i = 0; i < CONFIG.FOODS; i++) addFood(newFood());
 for (let i = 0; i < CONFIG.RIVALS; i++) rivals.push(makeRival(i));
 
 addEventListener('mousemove', e => { if (!player.autoBot) { mouseX = e.clientX; mouseY = e.clientY; } });
@@ -233,7 +248,7 @@ function updateBot(k, now) {
   if (botBattery <= 0) { setBot(false); toast(t('tbo')); return; }
   if (now >= botNext) {   // decide a cada ~200ms (não a cada frame): evita ficar virando de um lado para o outro
     botNext = now + 150 + Math.random() * 100; let tgt = null;
-    if (Math.hypot(player.x - W/2, player.y - W/2) > WR - 170) tgt = Math.atan2(W/2 - player.y, W/2 - player.x);
+    if (Math.hypot(player.x - W/2, player.y - W/2) > WR - 300) tgt = Math.atan2(W/2 - player.y, W/2 - player.x);
     const fleeing = now < botFlee;   // fuga em curso: mantém a direção (sem ficar mudando de ideia)
     if (tgt === null && !fleeing) {   // corpos de outras cobras perto e à frente: foge na direção oposta ao grupo
       let n = 0, ax = 0, ay = 0;
@@ -244,16 +259,16 @@ function updateBot(k, now) {
       if (n) { tgt = Math.atan2(player.y - ay / n, player.x - ax / n); botFlee = now + 500; }
     }
     if (tgt === null && !fleeing) {   // comida: mantém o alvo até comer; se não chegar em 1,5s, ignora esse alvo por 5s
-      if (botT && now > botLock && foods.includes(botT)) botSkip.set(botT, now + 5000);
-      if (!botT || !foods.includes(botT) || now > botLock) {
+      if (botT && now > botLock && !botT.dead) botSkip.set(botT, now + 5000);
+      if (!botT || botT.dead || now > botLock) {
         let bd = Infinity; botT = null;
-        for (const f of foods) {
-          if (f.noPay || (botSkip.get(f) || 0) > now || Math.hypot(f.x - W/2, f.y - W/2) > WR - 120) continue;
+        for (const f of nearFoods(player.x, player.y, 700)) {
+          if (f.noPay || (botSkip.get(f) || 0) > now || Math.hypot(f.x - W/2, f.y - W/2) > WR - 240) continue;
           const dx = f.x - player.x, dy = f.y - player.y, an = Math.atan2(dy, dx) - player.angle, d = (dx * dx + dy * dy) * (1 + 1.5 * Math.abs(Math.atan2(Math.sin(an), Math.cos(an)))); if (d < bd) { bd = d; botT = f; }   // prefere comida à frente (evita meia-volta)
         }
         botLock = now + 1500; if (botSkip.size > 40) botSkip.clear();
       }
-      if (botT) tgt = Math.atan2(botT.y - player.y, botT.x - player.x);
+      tgt = botT ? Math.atan2(botT.y - player.y, botT.x - player.x) : Math.atan2(W/2 - player.y, W/2 - player.x) + (Math.random() - .5) * 1.5;   // sem comida por perto: segue para o centro
     }
     if (tgt !== null) botDir = tgt;
   }
@@ -264,28 +279,35 @@ function updateBot(k, now) {
 
 // ---- Cobras ----
 function pushSeg(o) {
-  o.radius = 12 + Math.min(6, o.length / 300);   // engrossa conforme cresce
+  o.radius = (12 + Math.min(6, o.length / 300)) * (o.sk.thick || 1);   // engrossa conforme cresce
   const l = o.segments[0];
   if (!l || (o.x-l.x)**2 + (o.y-l.y)**2 >= CONFIG.SEG**2) {
     o.segments.unshift({x: o.x, y: o.y, c: o.n++});   // c = id fixo: cores não "piscam" mais
-    if (o.segments.length > o.length / 4) o.segments.pop();
+    if (o.segments.length > o.length / CONFIG.SEG) o.segments.pop();
   }
 }
 function eat(o, isPlayer) {
-  for (let i = foods.length - 1; i >= 0; i--) {
-    const f = foods[i], rr = o.radius + f.rad + 6 + (isPlayer ? MAGNET : 0);
-    if ((f.x-o.x)**2 + (f.y-o.y)**2 < rr*rr) { grow(o, f.val * 2); if (isPlayer) { if (!f.noPay) { gain(f.val * 0.1); if (!player.autoBot) prog.coins++; } SFX.coin(); spark(f.x, f.y, ORB_COLORS[f.col]); } foods[i] = newFood(); }
+  const mg = isPlayer ? MAGNET : 0, R = o.radius + mg + 24, x0 = Math.max(0, ((o.x - R) / CELL) | 0), x1 = ((o.x + R) / CELL) | 0, y0 = Math.max(0, ((o.y - R) / CELL) | 0), y1 = ((o.y + R) / CELL) | 0;
+  for (let cx = x0; cx <= x1; cx++) for (let cy = y0; cy <= y1; cy++) {
+    const c = grid.get(cx * 4096 + cy); if (!c) continue;
+    for (let i = c.length - 1; i >= 0; i--) {
+      const f = c[i], rr = o.radius + f.rad + 6 + mg;
+      if ((f.x - o.x) ** 2 + (f.y - o.y) ** 2 < rr * rr) {
+        grow(o, f.val * 2);
+        if (isPlayer) { if (!f.noPay) { gain(f.val * 0.1); if (!player.autoBot) prog.coins++; } SFX.coin(); spark(f.x, f.y, ORB_COLORS[f.col]); }
+        c[i] = c[c.length - 1]; c.pop(); f.dead = true; foodCount--; addFood(newFood());
+      }
+    }
   }
 }
 function dropFood(o) {
-  for (let i = 0; i < o.segments.length; i += 5) { const f = newFood(o.segments[i].x + rnd(-8,8), o.segments[i].y + rnd(-8,8), true); if (o === player) f.noPay = true; foods.push(f); }
-  if (foods.length > 1500) foods.splice(0, foods.length - 1500);
+  for (let i = 0; i < o.segments.length; i += 3) { const f = newFood(o.segments[i].x + rnd(-8,8), o.segments[i].y + rnd(-8,8), true); if (o === player) f.noPay = true; addDrop(f); }
 }
-function killPlayer() {
+function killPlayer(why) {
   burst(player.x, player.y, '#14f195', 40); shake = 12; SFX.die(); streak = 0; $('streak').textContent = 0;
   dropFood(player); player.length = player.score = 120; player.segments = [];
-  [player.x, player.y] = rndPt(); player.invulnUntil = performance.now() + 2500;
-  toast(t('tdie'));
+  [player.x, player.y] = rndPt(600); player.invulnUntil = performance.now() + 2500;
+  toast(why === 'wall' ? t('twall') : t('tdie'));
 }
 function killRival(i) {
   const v = rivals[i]; burst(v.x, v.y, v.sk.colors[0], 30); shake = Math.max(shake, 6); SFX.kill();
@@ -300,7 +322,7 @@ function killRival(i) {
 // IA: evita paredes e corpos, foge de jogador bem maior, caça (cortando caminho) se for maior, senão busca comida
 function think(r, now) {
   if (now < r.nt) return; r.nt = now + 120 + Math.random() * 120; r.hunt = false;
-  if (Math.hypot(r.x - W/2, r.y - W/2) > WR - 170) { r.ta = Math.atan2(W/2 - r.y, W/2 - r.x); return; }
+  if (Math.hypot(r.x - W/2, r.y - W/2) > WR - 280) { r.ta = Math.atan2(W/2 - r.y, W/2 - r.x); return; }
   const lx = r.x + Math.cos(r.angle) * 70, ly = r.y + Math.sin(r.angle) * 70;
   for (const o of [player, ...rivals]) { if (o === r) continue;
     for (let i = 0; i < o.segments.length; i += 3) { const s = o.segments[i]; if ((s.x-lx)**2 + (s.y-ly)**2 < 1156) { r.ta = r.angle + (Math.random() < .5 ? 1.2 : -1.2); return; } } }
@@ -308,7 +330,7 @@ function think(r, now) {
   if (dp < 220 && player.length > r.length * 1.4) { r.ta = Math.atan2(r.y - player.y, r.x - player.x); return; }
   if (!safe && dp < 380 && r.aggr && r.length > player.length * 1.1) { r.hunt = true; r.ta = Math.atan2(player.y + Math.sin(player.angle) * 70 - r.y, player.x + Math.cos(player.angle) * 70 - r.x); return; }
   let bd = 450 * 450, bf = null;
-  for (let i = 0; i < foods.length; i += 2) { const f = foods[i], d = (f.x-r.x)**2 + (f.y-r.y)**2; if (d < bd) { bd = d; bf = f; } }
+  for (const f of nearFoods(r.x, r.y, 450)) { const d = (f.x-r.x)**2 + (f.y-r.y)**2; if (d < bd) { bd = d; bf = f; } }
   r.ta = bf ? Math.atan2(bf.y - r.y, bf.x - r.x) : r.angle + (Math.random() - .5) * 1.2;
 }
 function update(k, now) {
@@ -329,22 +351,24 @@ function update(k, now) {
     if (free) energy = Math.max(0, energy - 30 * k / 60);
     else { boostDebt += BOOST_COST * k / 60; if (boostDebt >= 0.1) { Save.burn(boostDebt); boostDebt = 0; } }
     const loss = 3 * k / 60; player.length -= loss; player.score = Math.max(120, player.score - loss); dropAcc += loss;
-    if (dropAcc >= 3 && player.segments.length && foods.length < 1500) {
-      dropAcc -= 3; const tl = player.segments[player.segments.length - 1], o = newFood(tl.x, tl.y, false); o.noPay = true; foods.push(o);
+    if (dropAcc >= 3 && player.segments.length && foodCount < CONFIG.MAXF) {
+      dropAcc -= 3; const tl = player.segments[player.segments.length - 1], o = newFood(tl.x, tl.y, false); o.noPay = true; addDrop(o);
     }
   } else energy = Math.min(FREE_ENERGY, energy + 12 * k / 60);
   player.x += Math.cos(player.angle) * spd * k; player.y += Math.sin(player.angle) * spd * k;
-  const dc = Math.hypot(player.x - W/2, player.y - W/2); if (dc > WR - 8) { player.x = W/2 + (player.x - W/2) * (WR - 8) / dc; player.y = W/2 + (player.y - W/2) * (WR - 8) / dc; }
+  const dc = Math.hypot(player.x - W/2, player.y - W/2);
+  const wo = Math.max(0, Math.min(1, (dc - (WR - 380)) / 340)); if (E.warn._o !== wo.toFixed(2)) { E.warn._o = wo.toFixed(2); E.warn.style.opacity = E._o = wo.toFixed(2); }   // brilho vermelho ao se aproximar
+  if (dc >= WR - 14) { killPlayer('wall'); return; }
   pushSeg(player); eat(player, true);
   const zt = Math.max(.5, 1 / (1 + (player.length - 120) / 1000)); camera.z += (zt - camera.z) * .04 * k;   // zoom out ao crescer
   camera.w = canvas.width / camera.z; camera.h = canvas.height / camera.z; camera.x = player.x - camera.w / 2; camera.y = player.y - camera.h / 2;
 
-  for (const r of rivals) {
-    think(r, now);
+  for (let ri = 0; ri < rivals.length; ri++) {
+    const r = rivals[ri]; think(r, now);
     let d = r.ta - r.angle; d = Math.atan2(Math.sin(d), Math.cos(d)); r.angle += Math.max(-.09, Math.min(.09, d)) * k;
     const sp = r.speed * (r.hunt ? 1.3 : 1);
     r.x += Math.cos(r.angle) * sp * k; r.y += Math.sin(r.angle) * sp * k;
-    const dr = Math.hypot(r.x - W/2, r.y - W/2); if (dr > WR - 10) { r.x = W/2 + (r.x - W/2) * (WR - 10) / dr; r.y = W/2 + (r.y - W/2) * (WR - 10) / dr; }
+    if (Math.hypot(r.x - W/2, r.y - W/2) > WR - 14) { burst(r.x, r.y, r.sk.colors[0], 20); dropFood(r); rivals[ri] = makeRival(ri); continue; }   // rival que bate na parede morre
     pushSeg(r); eat(r, false);
   }
   for (const sn of [player, ...rivals]) if (sn.sk.fx && sn.segments.length && Math.random() < .12 * k) {   // efeitos das skins (fogo, gelo, estrelas…)
@@ -363,8 +387,9 @@ function update(k, now) {
       if ((g.x-r.x)**2 + (g.y-r.y)**2 < hit) { killRival(i); break; }
     }
   }
-  $('balance-display').textContent = Save.s.bal.toFixed(2); $('burn-display').textContent = Math.floor(Save.s.burned).toLocaleString(window.LANGLOC); $('daily-display').textContent = Math.floor(Save.s.today) + ' / ' + Save.CAP; $('daily-bar').style.width = Math.min(100, Save.s.today / Save.CAP * 100) + '%'; $('en-bar').style.width = (energy / (FREE_ENERGY || 1) * 100) + '%'; bb.classList.toggle('on', !!player.boosting);
-  $('snake-length').textContent = Math.floor(player.score);
+  setTxt(E.bal, Save.s.bal.toFixed(2)); setTxt(E.burn, Math.floor(Save.s.burned).toLocaleString(window.LANGLOC)); setTxt(E.daily, Math.floor(Save.s.today) + ' / ' + Save.CAP);
+  setW(E.dbar, Math.min(100, Save.s.today / Save.CAP * 100)); setW(E.en, energy / (FREE_ENERGY || 1) * 100); bb.classList.toggle('on', !!player.boosting);
+  setTxt(E.len, Math.floor(player.score));
   if (now - lastLB > 250) { lastLB = now; updateLeaderboard(); }
 }
 function updateLeaderboard() {
@@ -378,54 +403,60 @@ function updateLeaderboard() {
 // ---- Render ----
 const SPR = {};
 function shade(hex, a) {
-  const n = parseInt(hex.slice(1), 16), t = a < 0 ? 0 : 255, p = Math.abs(a);
-  return 'rgb(' + [n >> 16, (n >> 8) & 255, n & 255].map(v => Math.round((t - v) * p + v)) + ')';
+  const n = parseInt(hex.slice(1), 16), t = a < 0 ? 0 : 255, q = Math.abs(a);
+  return 'rgb(' + [n >> 16, (n >> 8) & 255, n & 255].map(v => Math.round((t - v) * q + v)) + ')';
 }
-function sprites(color) {
+function sprites(color) {   // esfera sombreada suave, desenhada uma vez por cor
   if (SPR[color]) return SPR[color];
-  const S = 28, H = 64, mk = n => { const c = document.createElement('canvas'); c.width = c.height = n; return [c, c.getContext('2d')]; };
-  const [body, b] = mk(S), [halo, h] = mk(H);
-  const g = b.createRadialGradient(S*.38, S*.34, 1, S/2, S/2, S/2);
-  g.addColorStop(0, shade(color, .6)); g.addColorStop(.45, color); g.addColorStop(1, shade(color, -.55));
-  b.fillStyle = g; b.beginPath(); b.arc(S/2, S/2, S/2, 0, 6.28); b.fill();
-  const q = h.createRadialGradient(H/2, H/2, S*.2, H/2, H/2, H/2);
-  q.addColorStop(0, color); q.addColorStop(1, 'rgba(0,0,0,0)');
-  h.fillStyle = q; h.fillRect(0, 0, H, H);
-  return SPR[color] = {body, halo};
+  const S = 32, c = document.createElement('canvas'); c.width = c.height = S; const b = c.getContext('2d'), g = b.createRadialGradient(S*.42, S*.38, 1, S/2, S/2, S/2);
+  g.addColorStop(0, shade(color, .28)); g.addColorStop(.62, color); g.addColorStop(1, shade(color, -.32));
+  b.fillStyle = g; b.beginPath(); b.arc(S/2, S/2, S/2, 0, 6.2832); b.fill();
+  return SPR[color] = c;
 }
 function drawSnake(sn, isPlayer, now) {
-  const sg = sn.segments; if (!sg.length) return;
-  const head = sg[0], r = sn.radius, d = r * 2, m = r * 3;
-  const vis = s => s.x > camera.x-m && s.x < camera.x+camera.w+m && s.y > camera.y-m && s.y < camera.y+camera.h+m;
-  const col = s => Skins.colorAt(sn.sk, s.c, now);
-  ctx.globalAlpha = (isPlayer && now < player.invulnUntil) ? .5 : 1;
-  ctx.save(); ctx.globalAlpha *= (isPlayer && player.boosting) ? .55 : .22;           // brilho ao redor do corpo
-  for (let i = sg.length - 1; i >= 0; i -= 2) { const s = sg[i]; if (!vis(s)) continue; const hs = d * 2.3; ctx.drawImage(sprites(col(s)).halo, s.x - hs/2, s.y - hs/2, hs, hs); }
-  ctx.restore();
-  for (let i = sg.length - 1; i >= 0; i--) { const s = sg[i]; if (!vis(s)) continue; ctx.drawImage(sprites(col(s)).body, s.x - r, s.y - r, d, d); }
-  ctx.save(); ctx.translate(head.x, head.y); ctx.rotate(sn.angle);
-  Skins.drawHead(ctx, sn.sk, r, now);
-  for (const ey of [-r * .5, r * .5]) {
-    ctx.beginPath(); ctx.arc(r * .45, ey, r * .42, 0, 6.28); ctx.fillStyle = '#fff'; ctx.fill();
-    ctx.beginPath(); ctx.arc(r * .6, ey, r * .2, 0, 6.28); ctx.fillStyle = '#000'; ctx.fill();
+  const sg = sn.segments, n = sg.length; if (!n) return;
+  const head = sg[0], r = sn.radius, sk = sn.sk, d = r * 2, m = r * 3;
+  if (Math.hypot(head.x - camera.x - camera.w / 2, head.y - camera.y - camera.h / 2) > Math.hypot(camera.w, camera.h) / 2 + sn.length + 150) return;   // fora da tela: não desenha
+  const vis = s => s.x > camera.x - m && s.x < camera.x + camera.w + m && s.y > camera.y - m && s.y < camera.y + camera.h + m;
+  const col = s => Skins.colorAt(sk, s.c, now);
+  const a0 = ctx.globalAlpha = (isPlayer && now < player.invulnUntil) ? .5 : 1;
+  ctx.lineCap = ctx.lineJoin = 'round';
+  const trace = (dx, dy, to) => { ctx.beginPath(); ctx.moveTo(sg[0].x + dx, sg[0].y + dy); for (let i = 2; i < to; i += 2) ctx.lineTo(sg[i].x + dx, sg[i].y + dy); };
+  if (n > 2) {
+    trace(4, 6, n); ctx.strokeStyle = 'rgba(0,0,0,.28)'; ctx.lineWidth = d + 3; ctx.stroke();                       // sombra no chão
+    ctx.globalAlpha = a0 * (isPlayer && player.boosting ? .3 : .13);
+    trace(0, 0, n); ctx.strokeStyle = col(sg[0]); ctx.lineWidth = d + 18; ctx.stroke(); ctx.globalAlpha = a0;         // brilho (1 traçado, sem blur)
   }
+  if (sk.tail && n > 8) { const a = sg[n - 1], b = sg[n - 4]; ctx.save(); ctx.translate(a.x, a.y); ctx.rotate(Math.atan2(a.y - b.y, a.x - b.x)); Skins.drawTail(ctx, sk, r * .8, now); ctx.restore(); }
+  for (let i = n - 1; i >= 0; i--) {   // corpo: esferas, cauda afinando
+    const s = sg[i]; if (!vis(s)) continue;
+    const t = i / n, k = t > .65 ? 1 - (t - .65) / .35 * .55 : 1, rr = r * k * (i === 0 ? 1.1 : 1);
+    ctx.drawImage(sprites(col(s)), s.x - rr, s.y - rr, rr * 2, rr * 2);
+  }
+  if (sk.spikes) Skins.drawSpikes(ctx, sk, sg, r, vis);
+  if (n > 6) { trace(-r * .28, -r * .3, Math.floor(n * .65)); ctx.strokeStyle = 'rgba(255,255,255,.2)'; ctx.lineWidth = r * .55; ctx.stroke(); }   // brilho ao longo do corpo
+  ctx.save(); ctx.translate(head.x, head.y); ctx.rotate(sn.angle);
+  Skins.drawHead(ctx, sk, r, now); Skins.eyes(ctx, sk, r);
   ctx.restore();
-  ctx.font = 'bold 12px Rajdhani, sans-serif'; ctx.textAlign = 'center'; ctx.fillStyle = 'rgba(255,255,255,.75)';
-  ctx.fillText(sn.name, head.x, head.y + r + 18);
+  ctx.font = 'bold 12px Rajdhani, sans-serif'; ctx.textAlign = 'center'; ctx.fillStyle = 'rgba(255,255,255,.75)'; ctx.fillText(sn.name, head.x, head.y + r + 20);
   ctx.globalAlpha = 1;
 }
+let vgr = null, vgW = 0, vgH = 0;
 function render(now) {
   ctx.fillStyle = '#05070a'; ctx.fillRect(0, 0, canvas.width, canvas.height);
   shake *= .9; if (shake < .05) shake = 0; const sx = (Math.random() - .5) * shake, sy = (Math.random() - .5) * shake;
   ctx.save(); ctx.translate(canvas.width / 2 + sx, canvas.height / 2 + sy); ctx.scale(camera.z, camera.z); ctx.translate(-player.x, -player.y);
   ctx.beginPath(); ctx.arc(W/2, W/2, WR, 0, 6.28); ctx.fillStyle = hexPattern; ctx.fill();
-  ctx.strokeStyle = '#ff4757'; ctx.lineWidth = 8; ctx.shadowColor = '#ff4757'; ctx.shadowBlur = 30; ctx.stroke(); ctx.shadowBlur = 0;
+  ctx.strokeStyle = 'rgba(255,40,70,.12)'; ctx.lineWidth = 70; ctx.stroke(); ctx.strokeStyle = 'rgba(255,40,70,.28)'; ctx.lineWidth = 28; ctx.stroke(); ctx.strokeStyle = '#ff4757'; ctx.lineWidth = 8; ctx.stroke();
   const ok = coinImage.complete && coinImage.naturalWidth > 0;
-  for (const f of foods) {
-    if (f.x < camera.x-30 || f.x > camera.x+camera.w+30 || f.y < camera.y-30 || f.y > camera.y+camera.h+30) continue;
-    const p = 1 + .12 * Math.sin(now / 280 + f.x), s = f.rad * 3.2 * p;
-    ctx.drawImage(ORBS[f.col], f.x - s/2, f.y - s/2, s, s);
-    if (f.val > 1 && !f.noPay && ok) { const c = f.rad * 2 * p; ctx.drawImage(coinImage, f.x - c/2, f.y - c/2, c, c); }
+  const gx0 = Math.max(0, ((camera.x - 30) / CELL) | 0), gx1 = ((camera.x + camera.w + 30) / CELL) | 0, gy0 = Math.max(0, ((camera.y - 30) / CELL) | 0), gy1 = ((camera.y + camera.h + 30) / CELL) | 0;
+  for (let cx = gx0; cx <= gx1; cx++) for (let cy = gy0; cy <= gy1; cy++) {
+    const c = grid.get(cx * 4096 + cy); if (!c) continue;
+    for (let i = 0; i < c.length; i++) {
+      const f = c[i], p = 1 + .12 * Math.sin(now / 280 + f.x), s = f.rad * 3.2 * p;
+      ctx.drawImage(ORBS[f.col], f.x - s/2, f.y - s/2, s, s);
+      if (f.val > 1 && !f.noPay && ok) { const q = f.rad * 2 * p; ctx.drawImage(coinImage, f.x - q/2, f.y - q/2, q, q); }
+    }
   }
   for (let i = parts.length - 1; i >= 0; i--) {   // partículas
     const q = parts[i]; q.x += q.vx; q.y += q.vy; q.vx *= .96; q.vy *= .96;
@@ -435,8 +466,8 @@ function render(now) {
   ctx.globalAlpha = 1;
   rivals.forEach(r => drawSnake(r, false, now)); drawSnake(player, true, now);
   ctx.restore();
-  const cx = canvas.width / 2, cy = canvas.height / 2, vg = ctx.createRadialGradient(cx, cy, Math.min(cx, cy) * .9, cx, cy, Math.max(cx, cy) * 1.5);
-  vg.addColorStop(0, 'rgba(0,0,0,0)'); vg.addColorStop(1, 'rgba(0,0,0,.55)'); ctx.fillStyle = vg; ctx.fillRect(0, 0, canvas.width, canvas.height);
+  if (!vgr || vgW !== canvas.width || vgH !== canvas.height) { vgW = canvas.width; vgH = canvas.height; const cx = vgW / 2, cy = vgH / 2; vgr = ctx.createRadialGradient(cx, cy, Math.min(cx, cy) * .9, cx, cy, Math.max(cx, cy) * 1.5); vgr.addColorStop(0, 'rgba(0,0,0,0)'); vgr.addColorStop(1, 'rgba(0,0,0,.55)'); }
+  ctx.fillStyle = vgr; ctx.fillRect(0, 0, canvas.width, canvas.height);
   const sc = 110 / W; mini.clearRect(0, 0, 110, 110);
   mini.fillStyle = '#ff4757'; rivals.forEach(r => { mini.beginPath(); mini.arc(r.x*sc, r.y*sc, 2, 0, 6.28); mini.fill(); });
   mini.fillStyle = '#14f195'; mini.beginPath(); mini.arc(player.x*sc, player.y*sc, 3.5, 0, 6.28); mini.fill();
