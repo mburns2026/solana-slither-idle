@@ -24,6 +24,15 @@
   }
   const fire = () => window.dispatchEvent(new Event('savechange'));
   const S = window.Save = {s: load(), CAP, FAUCET, VIP_PRICE, SKINS};
+  // ---- Modo online: o servidor é a fonte da verdade. O que mostramos = estado do servidor + estimativa do que ainda não foi enviado.
+  S.online = false; S.server = null; S.pend = {val: 0, bot: 0, killVal: 0, paidBoost: 0};
+  function recompute() {
+    const sv = S.server, P = S.pend, cap = sv.cap || CAP, rate = Math.max(0, 1 - sv.today / cap);
+    const est = Math.min((P.val + P.bot * 0.6 + P.killVal) * rate, Math.max(0, cap - sv.today)), boost = Math.min(P.paidBoost * 0.1, Math.max(0, sv.bal + est));
+    S.s = Object.assign({}, sv, {bal: sv.bal + est - boost, today: sv.today + est, burned: sv.burned + boost}); fire();
+  }
+  S.setOnline = st => { if (!st) { S.online = false; S.server = null; S.s = load(); fire(); return; } S.online = true; S.server = st; recompute(); };
+  S.pendAdd = (k, x) => { S.pend[k] += x; recompute(); };
   // Sempre relê o estado mais recente antes de gravar: duas abas não sobrescrevem uma à outra.
   function commit(fn) {
     S.s = load(); const r = fn(S.s);
@@ -44,12 +53,12 @@
   // Ganho com retorno decrescente: quanto mais já ganhou hoje, menor o pagamento. Nunca passa de CAP.
   S.earn = x => commit(s => { const rate = Math.max(0, 1 - s.today / CAP), paid = x * rate; s.today += paid; s.bal += paid; return {paid, rate}; });
   S.spend = c => commit(s => { if (s.bal < c) return false; s.bal -= c; s.burned += c * .5; return true; });
-  S.burn = c => commit(s => { const b = Math.min(s.bal, c); s.bal -= b; s.burned += b; return b; });
+  S.burn = c => { if (S.online) { const b = Math.min(S.s.bal, c); S.pend.paidBoost += b / 0.1; recompute(); return b; } return commit(s => { const b = Math.min(s.bal, c); s.bal -= b; s.burned += b; return b; }); };
   S.buySkin = id => commit(s => {
     if (!s.owned.includes(id)) { const p = SKINS[id].price; if (s.bal < p) return 'poor'; s.bal -= p; s.burned += p * .5; s.owned.push(id); }
     s.skin = id; return 'ok';
   });
   S.buyVip = () => commit(s => { if (s.vip) return 'have'; if (s.bal < VIP_PRICE) return 'poor'; s.bal -= VIP_PRICE; s.burned += VIP_PRICE * .5; s.vip = true; return 'ok'; });
   S.claim = () => commit(s => { if (s.faucetAt + FAUCET_MS > Date.now()) return {ok: false}; s.bal += FAUCET; s.faucetAt = Date.now(); return {ok: true}; });
-  addEventListener('storage', e => { if (e.key === KEY) { S.s = load(); fire(); } });
+  addEventListener('storage', e => { if (e.key === KEY && !S.online) { S.s = load(); fire(); } });
 })();

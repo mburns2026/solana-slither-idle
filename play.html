@@ -58,6 +58,7 @@ html,body{width:100%;height:100%;overflow:hidden;background:#05070a;font-family:
   <div class="tk"><span data-i="bal">tSLITHERI:</span> <span id="balance-display">0.00</span></div>
   <div class="tk" style="color:#ff4757"><span data-i="brn">Burned 🔥:</span> <span id="burn-display">0</span></div>
   <div class="tk"><span data-i="dly">Daily rewards:</span> <span id="daily-display">0</span></div><div class="dbar"><i id="daily-bar"></i></div>
+  <div class="tk" id="net" style="font-size:10px;opacity:.85"></div>
 </div>
 <div id="leaderboard" class="hud"><h3 data-i="lb">LEADERBOARD</h3><div id="leader-list"></div></div>
 <div id="br" class="hud">
@@ -112,6 +113,7 @@ html,body{width:100%;height:100%;overflow:hidden;background:#05070a;font-family:
 <script src="save.js"></script>
 <script src="config.js"></script>
 <script src="wallet.js"></script>
+<script src="api.js"></script>
 <script>
 const CONFIG = {WORLD: 7000, FOODS: 3000, MAXF: 4500, RIVALS: 24, SEG: 6, API_URL: null, TOKEN_MINT: null};
 const $ = id => document.getElementById(id);
@@ -124,16 +126,18 @@ const player = {x: W/2, y: W/2, angle: 0, speed: 3.6, radius: 14, length: 120, s
   autoBot: false, invulnUntil: 0, get name() { return t('you'); }, sk: Save.skin()};
 let rivals = [], mouseX = innerWidth/2, mouseY = innerHeight/2, botBattery = 100, totalBurned = 0, lastLB = 0;
 
-const MAGNET = Save.skin().magnet; let warned = 0;
+let MAGNET = Save.skin().magnet; let warned = 0;
 const FREE_ENERGY = 100, BOOST_COST = 0.1;   // FREE_ENERGY = 0 faz todo turbo custar tokens
 let energy = FREE_ENERGY, boostDebt = 0, dropAcc = 0, lastNoBoost = 0;
 function feed(msg) { const f = $('feed'), d = document.createElement('div'); d.textContent = msg; f.appendChild(d); while (f.children.length > 5) f.firstChild.remove(); setTimeout(() => d.remove(), 7000); }
 // Crescimento com retorno decrescente: o corpo tem teto suave (~1200); a pontuação (score) continua subindo para o ranking.
 function grow(o, a) { o.score += a; o.length += a * Math.max(.06, 1 - o.length / 1200); }
-function gain(x) {   // todo ganho passa pelo teto diário; o bot rende 60% do jogo ativo
-  const r = Save.earn(x * (player.autoBot ? 0.6 : 1));
-  if (r.rate < .05 && warned < 2) { warned = 2; feed(t('fcap2')); } else if (r.rate < .25 && warned < 1) { warned = 1; feed(t('fcap')); }
-  return r.paid;
+function gain(x, kill) {   // todo ganho passa pelo teto diário; o bot rende 60% do jogo ativo
+  let rate, paid;
+  if (Save.online) { const b0 = Save.s.bal; rate = Math.max(0, 1 - Save.s.today / Save.CAP); Save.pendAdd(kill ? 'killVal' : player.autoBot ? 'bot' : 'val', x); paid = Save.s.bal - b0; }   // o servidor confirma depois
+  else { const r = Save.earn(x * (player.autoBot ? 0.6 : 1)); rate = r.rate; paid = r.paid; }
+  if (rate < .05 && warned < 2) { warned = 2; feed(t('fcap2')); } else if (rate < .25 && warned < 1) { warned = 1; feed(t('fcap')); }
+  return paid;
 }
 // ---- Juice: áudio sintetizado (sem arquivos), partículas, tremor de tela ----
 let AC = null, muted = false, paused = false; try { muted = localStorage.getItem('slitheri_mute') === '1'; } catch (e) {}
@@ -312,7 +316,7 @@ function killPlayer(why) {
 function killRival(i) {
   const v = rivals[i]; burst(v.x, v.y, v.sk.colors[0], 30); shake = Math.max(shake, 6); SFX.kill();
   dropFood(v); rivals[i] = makeRival(i); grow(player, 30);
-  const g = gain(Math.min(1, v.length / 400)); feed(t('fk') + ' ' + v.name + (g > .005 ? '  +' + g.toFixed(2) : ''));
+  const g = gain(Math.min(1, v.length / 400), true); feed(t('fk') + ' ' + v.name + (g > .005 ? '  +' + g.toFixed(2) : ''));
   if (!player.autoBot) prog.kills++;
   streak++; $('streak').textContent = streak;
   const b = streak === 3 ? 50 : streak === 5 ? 100 : (streak >= 7 && streak % 2) ? 150 : 0;   // bônus em tamanho/pontuação, nunca em token
@@ -482,7 +486,10 @@ document.querySelectorAll('[data-buy]').forEach(b => b.onclick = () => {
   const [n, c] = b.dataset.buy.split('|');
   if (spend(+c)) { totalBurned += c * .5; $('burn-display').textContent = Math.floor(totalBurned).toLocaleString(window.LANGLOC); toast(t('tbuy')); }
 });
-$('recharge-btn').onclick = () => { if (spend(200)) { setBattery(100); toast(t('tb100')); } };
+$('recharge-btn').onclick = () => {
+  if (Save.online) { Api.call('/shop', {item: 'battery'}).then(st => { Save.setOnline(st); setBattery(100); toast(t('tb100')); }).catch(e => { if (e.code === 'poor') toast(t('tpoor')); }); return; }
+  if (spend(200)) { setBattery(100); toast(t('tb100')); }
+};
 
 let last = performance.now();
 function loop(now) {
@@ -490,6 +497,7 @@ function loop(now) {
   if (!paused) update(k, now); render(now); requestAnimationFrame(loop);
 }
 addEventListener('langchange', () => { setBot(player.autoBot); updateLeaderboard(); renderQuests(); });
+addEventListener('savechange', () => { const k = Save.skin(); if (player.sk !== k) { player.sk = k; MAGNET = k.magnet; } });   // skin comprada/sincronizada vale na hora
 document.querySelectorAll('[data-soc="dc"]').forEach(a => { const u = SITE.SOCIAL.dc; if (u) { a.href = u; a.target = '_blank'; } else a.style.display = 'none'; });
 // ---- UI: missões, som, tutorial ----
 function renderQuests() {
@@ -498,7 +506,20 @@ function renderQuests() {
     return '<div class="qrow"><span><b>' + L[d.id] + '</b><em>' + (done ? t('qdone') : Math.floor(v) + ' / ' + d.t) + '</em></span><div class="dbar"><i style="width:' + (v / d.t * 100) + '%"></i></div></div>'; }).join('');
   $('pts').textContent = Save.s.pts;
 }
+let syncing = false;
+async function flushOnline() {   // envia ao servidor só o que aconteceu desde o último envio; ele limita pelo tempo real
+  if (syncing || !Api.online) return; syncing = true;
+  const P = Save.pend, snap = {val: P.val, bot: P.bot, killVal: P.killVal, paidBoost: P.paidBoost, coinsN: prog.coins, kills: prog.kills, boost: prog.boost, play: prog.play, len: prog.len}, before = Save.s.q.done.length;
+  try {
+    const st = await Api.call('/sync', snap);
+    for (const k of ['val', 'bot', 'killVal', 'paidBoost']) P[k] = Math.max(0, P[k] - snap[k]);
+    for (const k of ['coins', 'kills', 'boost', 'play']) prog[k] = Math.max(0, prog[k] - snap[k === 'coins' ? 'coinsN' : k]);
+    Save.setOnline(st); renderQuests();
+    if (Save.s.q.done.length > before) { toast(t('qok')); SFX.quest(); }
+  } catch (e) { if (e.status === 401) Api.logout(); } finally { syncing = false; }
+}
 function flushProg() {
+  if (Save.online) return flushOnline();
   const done = Save.prog(prog); prog.coins = prog.kills = prog.boost = prog.play = 0;
   if (done.length) { toast(t('qok')); SFX.quest(); }
 }
@@ -511,6 +532,8 @@ $('help-btn').onclick = openTut;
 $('tut-go').onclick = () => { $('tut-modal').style.display = 'none'; paused = false; try { localStorage.setItem('slitheri_tut', '1'); } catch (e) {} tone(600, .08); };
 let seenTut = false; try { seenTut = localStorage.getItem('slitheri_tut') === '1'; } catch (e) {}
 if (!seenTut) openTut();
+function paintNet() { const el = $('net'); el.style.display = Api.enabled() ? '' : 'none'; el.textContent = Api.online ? t('net1') : t('net0'); }
+addEventListener('apistate', paintNet); addEventListener('langchange', paintNet); paintNet();
 requestAnimationFrame(loop);
 </script>
 </body>

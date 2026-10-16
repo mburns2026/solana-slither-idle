@@ -1,5 +1,7 @@
 // Edite aqui UMA vez: vale para todas as páginas. Deixe '' para esconder/apagar o link.
 window.SITE = {
+  API_URL: '',       // URL do backend (Cloudflare Worker) — vazio = modo local. Veja backend/README.md
+  NETWORK: 'mainnet',// 'devnet' enquanto estiver testando com o token de teste
   TOKEN_MINT: '',    // endereço do token $SLITHERI (preencher no lançamento) — ativa o painel de queima
   POOL_WALLET: '',   // carteira pública da pool de recompensas
   RPC: 'https://api.mainnet-beta.solana.com',  // troque por um RPC gratuito com chave (Helius, QuickNode) se houver limite

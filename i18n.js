@@ -104,6 +104,11 @@ tu3:["⚡ Segure o clique esquerdo / ESPAÇO para acelerar. Rajadas curtas são 
 tu4:["💀 Encostou no corpo de outra cobra ou na parede vermelha, você morre. Faça os rivais baterem no seu corpo para eliminá-los.","💀 Si tocas el cuerpo de otra serpiente o la pared roja, mueres. Haz que los rivales choquen con tu cuerpo para eliminarlos.","💀 碰到其他蛇的身体或红色围墙就会死亡。让对手撞上你的身体即可击败他们。"],tub:["COMEÇAR A JOGAR","EMPEZAR A JUGAR","开始游戏"],
 spts:["Pontos do airdrop (prévia):","Puntos del airdrop (vista previa):","空投积分(预览):"],
 twall:["💥 Você bateu na parede!","💥 ¡Chocaste con la pared!","💥 你撞墙了!"],
+wdt:["SACAR PARA A CARTEIRA (devnet)","RETIRAR A LA BILLETERA (devnet)","提现到钱包(devnet)"],
+wdd:["Envie tokens de teste para sua carteira Phantom na devnet da Solana. A equipe processa em lotes durante os testes.","Envía tokens de prueba a tu billetera Phantom en la devnet de Solana. El equipo los procesa por lotes durante las pruebas.","将测试代币发送到你在 Solana devnet 的 Phantom 钱包。测试期间由团队分批处理。"],
+wdb:["SACAR","RETIRAR","提现"],wdlogin:["Conecte e assine com a Phantom primeiro","Conecta y firma con Phantom primero","请先连接并用 Phantom 签名"],
+wdok:["Saque solicitado!","¡Retiro solicitado!","已提交提现申请!"],wdmin:["O saque mínimo é 100","El retiro mínimo es 100","最低提现额为 100"],wderr:["Não foi possível sacar agora","No se pudo retirar ahora","暂时无法提现"],
+net0:["💾 Modo local (assine com a Phantom para sincronizar)","💾 Modo local (firma con Phantom para sincronizar)","💾 本地模式(用 Phantom 签名以同步)"],net1:["☁ Online · testnet","☁ En línea · testnet","☁ 在线 · 测试网"],
 // ---- JS / jogo ----
 cd0:["🚀 Token e jogo lançam no mesmo dia — data em breve","🚀 Token y juego se lanzan el mismo día — fecha próximamente","🚀 代币与游戏同日上线 — 日期即将公布"],cd1:["🚀 Já lançado!","🚀 ¡Ya lanzado!","🚀 已上线!"],cd2:["🚀 Lançamento em","🚀 Lanzamiento en","🚀 距离上线"],
 wc:["🔗 Conectar Phantom","🔗 Conectar Phantom","🔗 连接 Phantom"],wd:["Clique para desconectar","Haz clic para desconectar","点击断开连接"],wt:["Conectar carteira Phantom","Conectar billetera Phantom","连接 Phantom 钱包"],wn:["Phantom não encontrada. Instale a extensão e recarregue a página.","Phantom no encontrada. Instala la extensión y recarga la página.","未检测到 Phantom。请安装扩展程序并刷新页面。"],
@@ -118,7 +123,7 @@ cd0:"🚀 Token and game launch on the same day — date coming soon",cd1:"🚀 
 tbat:"Battery empty! Recharge in the shop.",tbo:"Bot battery ran out",tdie:"💀 You died! Respawning...",tkill:"🔥 Rival eliminated! +0.5 $SLITHERI",tpoor:"Not enough $SLITHERI!",tbuy:"Item purchased!",tb100:"Battery 100%",
 sbuy:"BUY",seq:"EQUIP",seqd:"EQUIPPED",svipb:"ACTIVATE VIP (250)",svipon:"VIP ACTIVE 👑",sfqb:"🎁 CLAIM 250 tSLITHERI",sfqw:"⏳ Next claim in",
 tNo:"Not enough tSLITHERI!",tSk:"Skin equipped!",tVip:"VIP activated!",tFq:"+250 tSLITHERI claimed!",tWait:"Faucet not ready yet",
-fk:"🔥 You eliminated",fcap:"⚠ Daily rewards below 25% — keep playing for score and rank.",fcap2:"⚠ Daily reward cap almost reached. It resets tomorrow.",tNb:"Not enough tSLITHERI to boost",twall:"💥 You hit the wall!",
+fk:"🔥 You eliminated",fcap:"⚠ Daily rewards below 25% — keep playing for score and rank.",fcap2:"⚠ Daily reward cap almost reached. It resets tomorrow.",tNb:"Not enough tSLITHERI to boost",twall:"💥 You hit the wall!",wdlogin:"Connect and sign in with Phantom first",wdok:"Withdrawal requested!",wdmin:"Minimum withdrawal is 100",wderr:"Could not withdraw right now",net0:"💾 Local mode (sign with Phantom to sync)",net1:"☁ Online · testnet",
 qc:"Collect 60 coins",qk:"Eliminate 3 rivals",qbo:"Boost for 15 seconds",qp:"Play for 5 minutes",ql:"Reach length 500",qok:"🎯 Quest complete! +5 points (preview)",qdone:"DONE ✓",stkm:"KILL STREAK!",
 btw:"Live data starts at the token launch.",bte:"Could not reach the network. Retrying…"};
 const LANGS = {en:'English', pt:'Português', es:'Español', zh:'中文'}, IDX = {pt:0, es:1, zh:2}, LOC = {en:'en-US', pt:'pt-BR', es:'es-ES', zh:'zh-CN'};

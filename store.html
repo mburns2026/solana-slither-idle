@@ -97,6 +97,7 @@ footer{text-align:center;padding:36px 5% 56px;color:#7c8497;font-size:14px;borde
 </nav>
 <section style="padding-top:60px">
   <h2 data-i="sth">TESTNET STORE</h2><p class="sub" data-i="sts">Test coins have no real value and will not carry over to the mainnet launch.</p>
+  <p class="sub" id="net" style="margin:-26px 0 26px;font-size:13px"></p>
   <div class="card wal">
     <div><small data-i="sbal">TEST BALANCE (tSLITHERI)</small><div class="big" id="bal">0.00</div></div>
     <div><small><span data-i="sdl">Daily play rewards</span> <b id="dtxt"></b></small><div class="pbar"><i id="dbar"></i></div></div>
@@ -107,6 +108,10 @@ footer{text-align:center;padding:36px 5% 56px;color:#7c8497;font-size:14px;borde
     <div><h3 data-i="svip">👑 VIP AUTO-BOT (TESTNET)</h3><p data-i="svipd">Auto-Bot battery drains 50% slower. No earnings boost.</p></div>
     <button class="btn gold" id="vipb"></button>
   </div>
+  <div class="card" style="margin:0 0 34px"><h3 data-i="wdt">WITHDRAW TO WALLET (devnet)</h3>
+    <p data-i="wdd">Send test tokens to your Phantom wallet on Solana devnet. The team processes them in batches during testing.</p>
+    <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-top:12px"><input id="wd-amt" type="number" min="100" step="10" value="100" style="width:130px;padding:10px;border-radius:10px;border:1px solid rgba(255,255,255,.25);background:rgba(0,0,0,.4);color:#fff;font:700 15px Rajdhani"><button class="btn" id="wd-btn" data-i="wdb">WITHDRAW</button></div>
+    <div id="wd-list" style="margin-top:12px;font-size:14px;color:#b9bfd0"></div></div>
   <h3 style="text-align:center;margin-bottom:18px;color:#fff" data-i="skh">SNAKE SKINS</h3>
   <div class="tabs" id="tabs"></div>
   <div class="grid" id="skin-grid"></div>
@@ -118,6 +123,7 @@ footer{text-align:center;padding:36px 5% 56px;color:#7c8497;font-size:14px;borde
 <script src="save.js"></script>
 <script src="config.js"></script>
 <script src="wallet.js"></script>
+<script src="api.js"></script>
 <script>
 const $ = id => document.getElementById(id);
 function toast(m){ const e = $('toast'); e.textContent = m; e.style.opacity = 1; clearTimeout(toast.i); toast.i = setTimeout(() => e.style.opacity = 0, 2200); }
@@ -148,9 +154,21 @@ function render() {
   states();
 }
 $('tabs').onclick = e => { const b = e.target.closest('[data-tab]'); if (b) { tab = b.dataset.tab; buildTabs(); buildGrid(); } };
-$('skin-grid').onclick = e => { const b = e.target.closest('[data-skin-btn]'); if (b) toast(Save.buySkin(+b.dataset.skinBtn) === 'ok' ? t('tSk') : t('tNo')); };
-$('fq').onclick = () => toast(Save.claim().ok ? t('tFq') : t('tWait'));
-$('vipb').onclick = () => { const r = Save.buyVip(); if (r === 'ok') toast(t('tVip')); else if (r === 'poor') toast(t('tNo')); };
+// Online: o servidor decide (e devolve o estado novo). Offline: regras locais de teste.
+async function act(online, local) {
+  if (!Save.online) return local();
+  try { Save.setOnline(await online()); return 'ok'; } catch (e) { return e.code || 'err'; }
+}
+$('skin-grid').onclick = async e => { const b = e.target.closest('[data-skin-btn]'); if (!b) return; const id = +b.dataset.skinBtn; toast(await act(() => Api.call('/shop', {item: 'skin', id}), () => Save.buySkin(id)) === 'ok' ? t('tSk') : t('tNo')); };
+$('fq').onclick = async () => toast(await act(() => Api.call('/faucet', {}), () => Save.claim().ok ? 'ok' : 'wait') === 'ok' ? t('tFq') : t('tWait'));
+$('vipb').onclick = async () => { const r = await act(() => Api.call('/shop', {item: 'vip'}), () => Save.buyVip()); if (r === 'ok') toast(t('tVip')); else if (r === 'poor') toast(t('tNo')); };
+async function wdList() { if (!Save.online) { $('wd-list').textContent = ''; return; } try { const r = await Api.call('/withdrawals'); $('wd-list').innerHTML = r.list.map(x => x.amount + ' · ' + (x.status === 'sent' ? '✓' : x.status === 'failed' ? '✗' : '⏳')).join('<br>'); } catch (e) {} }
+$('wd-btn').onclick = async () => {
+  if (!Save.online) return toast(t('wdlogin'));
+  try { Save.setOnline(await Api.call('/withdraw', {amount: +$('wd-amt').value})); toast(t('wdok')); wdList(); } catch (e) { toast(e.code === 'poor' ? t('tNo') : e.code === 'min' ? t('wdmin') : t('wderr')); }
+};
+function paintNet() { const el = $('net'); el.style.display = Api.enabled() ? '' : 'none'; el.textContent = Api.online ? t('net1') : t('net0'); }
+addEventListener('apistate', () => { render(); wdList(); paintNet(); }); addEventListener('langchange', paintNet); paintNet();
 document.querySelectorAll('[data-soc="dc"]').forEach(a => { const u = SITE.SOCIAL.dc; if (u) { a.href = u; a.target = '_blank'; } else a.style.display = 'none'; });
 setInterval(() => document.querySelectorAll('.pv').forEach(c => { const sk = SKINS[+c.dataset.skin]; if (sk.anim) Skins.preview(c, sk, performance.now()); }), 100);
 addEventListener('savechange', render); setInterval(render, 20000);

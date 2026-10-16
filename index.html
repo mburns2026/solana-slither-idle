@@ -271,7 +271,7 @@ async function burnTick() {
       const a = await rpc('getTokenAccountsByOwner', [SITE.POOL_WALLET, {mint: m}, {encoding: 'jsonParsed'}]);
       o('bt-pool').textContent = fmt(a.value.reduce((n, x) => n + x.account.data.parsed.info.tokenAmount.uiAmount, 0), 0);
     }
-    o('bt-state').textContent = ''; o('bt-link').href = 'https://solscan.io/token/' + m; o('bt-link').style.display = '';
+    o('bt-state').textContent = ''; o('bt-link').href = 'https://solscan.io/token/' + m + (SITE.NETWORK === 'devnet' ? '?cluster=devnet' : ''); o('bt-link').style.display = '';
   } catch (e) { o('bt-state').textContent = t('bte'); }
 }
 burnTick(); setInterval(burnTick, 60000);
