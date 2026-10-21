@@ -9,4 +9,4 @@ database_id = "COLE_AQUI_O_ID_QUE_O_COMANDO_MOSTRAR"
 
 [vars]
 TESTNET = "1"                                   # "1" = rede de teste (faucet ligado). Em produção: "0"
-ALLOW_ORIGIN = "https://mburns2026.github.io"   # sites autorizados a chamar a API (separe por vírgula)
+ALLOW_ORIGIN = "https://mburns2026.github.io,https://aistudiosgames.vercel.app"   # sites autorizados a chamar a API (separe por vírgula)
