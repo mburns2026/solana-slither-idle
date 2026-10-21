@@ -1,6 +1,23 @@
 // Backend Slither.Idle — Cloudflare Worker + D1. O livro-caixa do servidor é a fonte da verdade.
 // Regras espelham o jogo: teto diário com retorno decrescente, sem multiplicadores, compras queimam 50%.
 const CAP = 300, FAUCET = 250, FAUCET_MS = 864e5, VIP_PRICE = 250, BATTERY_PRICE = 200, WD_MIN = 100, WD_DAY = 1000, START_BAL = 100;
+// ---- cobras (gacha), farm AFK e upgrade: tudo usa o MESMO teto diario (CAP) acima, nunca emite por fora dele ----
+const GACHA_PRICE = 400;                 // custo de uma capsula (mesma escala de preco das skins)
+const AFK_CAP_HOURS = 24;                // nao acumula mais que 1 dia parado sem reivindicar
+const UPG_BASE = 80, UPG_MULT = 1.5;     // preco do upgrade de cobra cresce 1.5x a cada nivel, igual ao Bomber Idle
+// raridade -> peso do sorteio, bonus de velocidade/ima (cosmetico/gameplay ativo) e taxa de farm AFK base (tokens/hora)
+const RARITIES = [
+  {id: 'common',    w: 55, speed: 0, magnet: 0,  afk: 2},
+  {id: 'rare',      w: 25, speed: 2, magnet: 10, afk: 4},
+  {id: 'epic',      w: 12, speed: 4, magnet: 25, afk: 8},
+  {id: 'legendary', w: 6,  speed: 6, magnet: 45, afk: 16},
+  {id: 'mythic',    w: 2,  speed: 9, magnet: 70, afk: 32},
+];
+function rollSnakeRarity() {
+  const total = RARITIES.reduce((s, r) => s + r.w, 0); let roll = Math.random() * total;
+  for (const r of RARITIES) { if (roll < r.w) return r; roll -= r.w; }
+  return RARITIES[0];
+}
 const SKIN_PRICES = [0,500,1500,3000,300,300,300,300,300,300,300,300,300,300,300,300,300,300,300,300,200,200,200,250,300,300,300,400,900,900,1200,1800,1800,2500,3500,3500,5000,6000,8000,700,800,700,1200,1500,900,800,800,900,1000,1500,1500,2000,2200,1800,1500,2500,9000];
 const QUESTS = [{id: 'coins', t: 60}, {id: 'kills', t: 3}, {id: 'boost', t: 15}, {id: 'play', t: 300}, {id: 'len', t: 500}];
 const B58 = '123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz', enc = new TextEncoder();
@@ -33,6 +50,11 @@ async function route(req, env) {
   if (path === '/me') { const p = await load(env, w); roll(p); return view(p); }
   if (path === '/sync' && m === 'POST') return sync(env, w, await body(req));
   if (path === '/shop' && m === 'POST') return shop(env, w, await body(req));
+  if (path === '/gacha' && m === 'POST') return gacha(env, w);
+  if (path === '/snakes') return {list: await listSnakes(env, w)};
+  if (path === '/snake/select' && m === 'POST') return selectSnake(env, w, await body(req));
+  if (path === '/snake/upgrade' && m === 'POST') return upgradeSnake(env, w, await body(req));
+  if (path === '/farm/claim' && m === 'POST') return farmClaim(env, w);
   if (path === '/faucet' && m === 'POST') return faucet(env, w);
   if (path === '/withdraw' && m === 'POST') return withdraw(env, w, await body(req));
   if (path === '/withdrawals') { const r = await env.DB.prepare('SELECT id, amount_u, status, sig, created FROM withdrawals WHERE wallet=? ORDER BY id DESC LIMIT 10').bind(w).all(); return {list: r.results.map(x => ({id: x.id, amount: f(x.amount_u), status: x.status, sig: x.sig, created: x.created}))}; }
@@ -96,13 +118,14 @@ async function load(env, w) {
   r.owned = JSON.parse(r.owned || '[0]'); r.q = JSON.parse(r.q || 'null') || newQ(); return r;
 }
 function roll(p) { const d = today(); if (p.day !== d) { p.day = d; p.today_u = 0; } if (!p.q || p.q.day !== d) p.q = newQ(); }
-const view = p => ({bal: f(p.bal_u), today: f(p.today_u), cap: CAP, burned: f(p.burned_u), pts: p.pts, vip: !!p.vip, skin: p.skin, owned: p.owned, day: p.day, faucetAt: p.faucet_at, q: p.q, serverTime: Date.now()});
+const view = p => ({bal: f(p.bal_u), today: f(p.today_u), cap: CAP, burned: f(p.burned_u), pts: p.pts, vip: !!p.vip, skin: p.skin, owned: p.owned, day: p.day, faucetAt: p.faucet_at, q: p.q, serverTime: Date.now(),
+  activeSnake: p.active_snake, afkAt: p.afk_at});
 async function addStat(env, k, d) { if (d) await env.DB.prepare('INSERT INTO stats(k, v) VALUES(?,?) ON CONFLICT(k) DO UPDATE SET v = v + excluded.v').bind(k, d).run(); }
 async function mutate(env, w, fn) {   // lê → altera → grava com controle de versão (sem corrida entre abas/requisições)
   for (let i = 0; i < 4; i++) {
     const p = await load(env, w); roll(p); const out = fn(p) || {};
-    const r = await env.DB.prepare('UPDATE players SET bal_u=?, today_u=?, day=?, burned_u=?, pts=?, vip=?, skin=?, owned=?, faucet_at=?, last_sync=?, q=?, sus=?, ver=ver+1 WHERE wallet=? AND ver=?')
-      .bind(p.bal_u, p.today_u, p.day, p.burned_u, p.pts, p.vip, p.skin, JSON.stringify(p.owned), p.faucet_at, p.last_sync, JSON.stringify(p.q), p.sus, w, p.ver).run();
+    const r = await env.DB.prepare('UPDATE players SET bal_u=?, today_u=?, day=?, burned_u=?, pts=?, vip=?, skin=?, owned=?, faucet_at=?, last_sync=?, q=?, sus=?, active_snake=?, afk_at=?, ver=ver+1 WHERE wallet=? AND ver=?')
+      .bind(p.bal_u, p.today_u, p.day, p.burned_u, p.pts, p.vip, p.skin, JSON.stringify(p.owned), p.faucet_at, p.last_sync, JSON.stringify(p.q), p.sus, p.active_snake, p.afk_at, w, p.ver).run();
     if (r.meta && r.meta.changes === 1) { await addStat(env, 'burn_pending_u', out.burn); await addStat(env, 'pool_return_u', out.pool); return view(p); }
   }
   throw new HttpError(409, 'busy');
@@ -136,6 +159,56 @@ const shop = (env, w, b) => mutate(env, w, p => {
   else throw new HttpError(400, 'item');
   const burn = Math.floor(cost / 2); p.burned_u += burn; return {burn, pool: cost - burn};   // 50% queimado, 50% volta para a pool
 });
+// ---------- cobras: gacha, selecao, upgrade, farm AFK ----------
+async function listSnakes(env, w) {
+  const r = await env.DB.prepare('SELECT id, rarity, speed_u, magnet_u, afk_u, lvl, created FROM snakes WHERE wallet=? ORDER BY id').bind(w).all();
+  return r.results.map(x => ({id: x.id, rarity: x.rarity, speed: x.speed_u, magnet: x.magnet_u, afk: x.afk_u, lvl: x.lvl, created: x.created}));
+}
+async function gacha(env, w) {
+  const r = rollSnakeRarity();
+  const state = await mutate(env, w, p => {
+    const price = u(GACHA_PRICE); if (p.bal_u < price) throw new HttpError(402, 'poor');
+    p.bal_u -= price; const burn = Math.floor(price / 2); p.burned_u += burn; return {burn, pool: price - burn};
+  });
+  const ins = await env.DB.prepare('INSERT INTO snakes(wallet, rarity, speed_u, magnet_u, afk_u, created) VALUES(?,?,?,?,?,?)')
+    .bind(w, r.id, r.speed, r.magnet, r.afk, Date.now()).run();
+  const snakeId = ins.meta.last_row_id;
+  await env.DB.prepare('INSERT INTO gacha_log(wallet, rarity, snake_id, cost_u, created) VALUES(?,?,?,?,?)').bind(w, r.id, snakeId, u(GACHA_PRICE), Date.now()).run();
+  return {...state, snake: {id: snakeId, rarity: r.id, speed: r.speed, magnet: r.magnet, afk: r.afk, lvl: 0}};
+}
+async function selectSnake(env, w, b) {
+  const id = b.id | 0;
+  const row = await env.DB.prepare('SELECT id FROM snakes WHERE id=? AND wallet=?').bind(id, w).first();
+  if (!row) throw new HttpError(404, 'snake');
+  return mutate(env, w, p => { p.active_snake = id; });
+}
+async function upgradeSnake(env, w, b) {
+  const id = b.id | 0;
+  const snake = await env.DB.prepare('SELECT afk_u, lvl FROM snakes WHERE id=? AND wallet=?').bind(id, w).first();
+  if (!snake) throw new HttpError(404, 'snake');
+  const price = Math.round(UPG_BASE * Math.pow(UPG_MULT, snake.lvl));   // cresce 1.5x por nivel, igual ao padrao do Bomber Idle
+  const state = await mutate(env, w, p => {
+    const cost = u(price); if (p.bal_u < cost) throw new HttpError(402, 'poor');
+    p.bal_u -= cost; const burn = Math.floor(cost / 2); p.burned_u += burn; return {burn, pool: cost - burn};
+  });
+  const step = Math.max(1, Math.round(snake.afk_u * 0.3));   // cada nivel soma 30% da taxa base da raridade
+  await env.DB.prepare('UPDATE snakes SET afk_u = afk_u + ?, lvl = lvl + 1 WHERE id=?').bind(step, id).run();
+  return {...state, snakeId: id, afk: snake.afk_u + step, lvl: snake.lvl + 1, price};
+}
+// Farm AFK: paga pelo tempo real decorrido desde o ultimo claim (nao depende do cliente estar aberto), somando a taxa
+// de TODAS as cobras do jogador. Usa a mesma formula de teto decrescente do /sync, entao nunca emite fora do CAP/dia.
+async function farmClaim(env, w) {
+  const snakes = (await env.DB.prepare('SELECT afk_u FROM snakes WHERE wallet=?').bind(w).all()).results;
+  const ratePerHour = snakes.reduce((s, x) => s + x.afk_u, 0);
+  let claimed = 0;   // mutate() devolve so view(p); o quanto foi coletado precisa ser capturado por fora
+  const state = await mutate(env, w, p => {
+    const now = Date.now(), elapsedH = Math.min(AFK_CAP_HOURS, Math.max(0, (now - (p.afk_at || now)) / 36e5));
+    if (!ratePerHour || elapsedH <= 0) { p.afk_at = now; claimed = 0; return; }
+    const rate = Math.max(0, 1 - f(p.today_u) / CAP), gross = ratePerHour * elapsedH, paid = u(gross * rate);
+    p.today_u += paid; p.bal_u += paid; p.afk_at = now; claimed = f(paid);
+  });
+  return {...state, claimed};
+}
 const faucet = (env, w) => { if (env.TESTNET !== '1') throw new HttpError(403, 'mainnet'); return mutate(env, w, p => { if (p.faucet_at + FAUCET_MS > Date.now()) throw new HttpError(429, 'wait'); p.bal_u += u(FAUCET); p.faucet_at = Date.now(); }); };
 async function withdraw(env, w, b) {
   const amt = Math.floor(clamp(b.amount, 0, 1e9)); if (amt < WD_MIN) throw new HttpError(400, 'min');
