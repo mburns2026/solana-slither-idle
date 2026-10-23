@@ -7,7 +7,7 @@
   const TAU = Math.PI * 2, MAXP = 1024;
   // Níveis de qualidade. stride = amostragem da espinha (em segmentos); smooth = passes de suavização; demais = efeitos opcionais.
   const QUALITY = [
-    {level: 0, maxDpr: 1,   stride: 3, smooth: 0, shadow: false, glow: false, hi: false, tex: false, tongue: false, bands: false},
+    {level: 0, maxDpr: 1,   stride: 3, smooth: 1, shadow: false, glow: false, hi: true,  tex: false, tongue: false, bands: true},   // q0 mantém faixas de cor, suavização e realce: só perde sombra, brilho, escamas e língua
     {level: 1, maxDpr: 1.5, stride: 2, smooth: 1, shadow: true,  glow: false, hi: true,  tex: false, tongue: true,  bands: true},
     {level: 2, maxDpr: 2,   stride: 1, smooth: 2, shadow: true,  glow: true,  hi: true,  tex: true,  tongue: true,  bands: true},
   ];
@@ -192,6 +192,6 @@
     fake.sk = sk; fake.radius = r; fake.x = sg[0].x; fake.y = sg[0].y; fake.angle = Math.atan2(sg[0].y - sg[2].y, sg[0].x - sg[2].x); fake.px = fake.x; fake.py = fake.y; fake.pa = fake.angle; fake.eatT = -1e9;
     draw(c, fake, {q: QUALITY[2], now: now || 0, alpha: 1, wave: now ? 1 : 0});
   }
-  const api = {QUALITY, draw, preview, shade, _buildSpine: buildSpine, _edges: edges, _buf: {px, py, ss, hw, pc, E0}, MAXP};
+  const api = {VERSION: '3.2', QUALITY, draw, preview, shade, _buildSpine: buildSpine, _edges: edges, _buf: {px, py, ss, hw, pc, E0}, MAXP};
   if (typeof module !== 'undefined' && module.exports) module.exports = api; else { root.SnakeRender = api; if (root.Skins) root.Skins.preview = preview; }   // a loja usa o MESMO renderer do jogo
 })(typeof window !== 'undefined' ? window : globalThis);
